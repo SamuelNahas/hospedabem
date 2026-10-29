@@ -8,61 +8,87 @@ import hospedabem.controller.ControladorReserva;
 import hospedabem.controller.ControladorTipoQuarto;
 import hospedabem.model.Funcionario;
 import hospedabem.model.Perfil;
+import javafx.scene.Node;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Tooltip;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 import org.springframework.context.ConfigurableApplicationContext;
 
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import java.awt.BorderLayout;
-import java.awt.GridLayout;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Supplier;
 
-/** Menu da iteração 1: somente funcionalidades implementadas aparecem. */
-public class TelaPrincipal extends JFrame {
+/** Estrutura após o login: barra lateral com as funcionalidades da iteração 1 e a página atual. */
+public class TelaPrincipal extends BorderPane {
+    private final ScrollPane conteudo = new ScrollPane();
+    private final List<Button> navegacao = new ArrayList<>();
 
     public TelaPrincipal(ConfigurableApplicationContext ctx, Funcionario funcionario) {
-        super("HospedaBem - " + funcionario.nome() + " (" + funcionario.perfil() + ")");
         boolean admin = funcionario.perfil() == Perfil.ADMINISTRADOR;
+        Label marca = new Label("HospedaBem");
+        marca.getStyleClass().add("marca");
 
-        JButton tipos = new JButton("Tipos de quarto");
-        JButton quartos = new JButton("Quartos");
-        JButton disponibilidade = new JButton("Consultar disponibilidade");
-        JButton reserva = new JButton("Registrar reserva");
-        JButton checkIn = new JButton("Realizar check-in");
-        JButton sair = new JButton("Sair");
-        tipos.setEnabled(admin);
-        quartos.setEnabled(admin);
+        Button disponibilidade = item("Disponibilidade", () -> new TelaDisponibilidade(ctx.getBean(ControladorDisponibilidade.class)));
+        Button reserva = item("Registrar reserva", () -> new TelaReserva(ctx.getBean(ControladorReserva.class),
+                ctx.getBean(ControladorDisponibilidade.class)));
+        Button checkIn = item("Check-in", () -> new TelaCheckIn(ctx.getBean(ControladorCheckIn.class),
+                ctx.getBean(ControladorDisponibilidade.class)));
+        Button tipos = item("Tipos de quarto", () -> new TelaTipoQuarto(ctx.getBean(ControladorTipoQuarto.class)));
+        Button quartos = item("Quartos", () -> new TelaQuarto(ctx.getBean(ControladorQuarto.class),
+                ctx.getBean(ControladorDisponibilidade.class)));
         if (!admin) {
-            tipos.setToolTipText("Restrito ao administrador (RF-3)");
-            quartos.setToolTipText("Restrito ao administrador (RF-3)");
+            for (Button b : List.of(tipos, quartos)) {
+                b.setDisable(true);
+                b.setTooltip(new Tooltip("Restrito ao administrador (RF-3)"));
+            }
         }
 
-        tipos.addActionListener(e -> new TelaTipoQuarto(this, ctx.getBean(ControladorTipoQuarto.class)).setVisible(true));
-        quartos.addActionListener(e -> new TelaQuarto(this, ctx.getBean(ControladorQuarto.class),
-                ctx.getBean(ControladorDisponibilidade.class)).setVisible(true));
-        disponibilidade.addActionListener(e ->
-                new TelaDisponibilidade(this, ctx.getBean(ControladorDisponibilidade.class)).setVisible(true));
-        reserva.addActionListener(e -> new TelaReserva(this, ctx.getBean(ControladorReserva.class),
-                ctx.getBean(ControladorDisponibilidade.class)).setVisible(true));
-        checkIn.addActionListener(e -> new TelaCheckIn(this, ctx.getBean(ControladorCheckIn.class),
-                ctx.getBean(ControladorDisponibilidade.class)).setVisible(true));
-        sair.addActionListener(e -> {
+        Label secaoAtendimento = secao("ATENDIMENTO");
+        Label secaoCadastros = secao("CADASTROS");
+        Region espaco = new Region();
+        VBox.setVgrow(espaco, Priority.ALWAYS);
+        Label usuario = new Label(funcionario.nome() + "\n" + funcionario.matricula() + " · "
+                + (admin ? "Administrador" : "Recepcionista"));
+        usuario.getStyleClass().add("usuario");
+        Button sair = Campos.botao("Sair", "botao-sair");
+        sair.setMaxWidth(Double.MAX_VALUE);
+        sair.setOnAction(e -> {
             ctx.getBean(ControladorAutenticacao.class).sair();
-            new TelaLogin(ctx).setVisible(true);
-            dispose();
+            getScene().setRoot(new TelaLogin(ctx));
         });
 
-        JPanel botoes = new JPanel(new GridLayout(0, 1, 6, 6));
-        for (JButton b : new JButton[]{tipos, quartos, disponibilidade, reserva, checkIn, sair}) botoes.add(b);
-        JPanel painel = new JPanel(new BorderLayout(8, 8));
-        painel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-        painel.add(new JLabel("Matrícula " + funcionario.matricula() + " - perfil " + funcionario.perfil()),
-                BorderLayout.NORTH);
-        painel.add(botoes, BorderLayout.CENTER);
-        setContentPane(painel);
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
-        pack();
-        setLocationRelativeTo(null);
+        VBox barra = new VBox(marca, secaoAtendimento, disponibilidade, reserva, checkIn, secaoCadastros, tipos,
+                quartos, espaco, usuario, sair);
+        barra.getStyleClass().add("barra-lateral");
+        conteudo.setFitToWidth(true);
+        conteudo.getStyleClass().add("conteudo");
+        setLeft(barra);
+        setCenter(conteudo);
+        checkIn.fire();
+    }
+
+    private Button item(String texto, Supplier<Node> pagina) {
+        Button b = new Button(texto);
+        b.getStyleClass().add("item-navegacao");
+        b.setMaxWidth(Double.MAX_VALUE);
+        b.setOnAction(e -> {
+            navegacao.forEach(n -> n.getStyleClass().remove("ativo"));
+            b.getStyleClass().add("ativo");
+            conteudo.setContent(pagina.get());
+            conteudo.setVvalue(0);
+        });
+        navegacao.add(b);
+        return b;
+    }
+
+    private static Label secao(String texto) {
+        Label l = new Label(texto);
+        l.getStyleClass().add("secao-navegacao");
+        return l;
     }
 }

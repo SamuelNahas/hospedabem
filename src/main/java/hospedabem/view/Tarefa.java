@@ -1,59 +1,57 @@
 package hospedabem.view;
 
+import javafx.concurrent.Task;
+import javafx.scene.Node;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.swing.JComponent;
-import javax.swing.JOptionPane;
-import javax.swing.SwingWorker;
-import java.awt.Cursor;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
-/** Executa acesso ao banco fora da thread de eventos do Swing e apresenta o resultado ou o erro nela. */
+/** Executa o acesso ao banco fora da thread do JavaFX e devolve o resultado ou o erro a ela. */
 public final class Tarefa {
     private static final Logger LOG = LoggerFactory.getLogger(Tarefa.class);
+    private static final AtomicInteger EM_ANDAMENTO = new AtomicInteger();
 
     private Tarefa() {
     }
 
-    public static <T> void executar(JComponent origem, Callable<T> trabalho, Consumer<T> aoConcluir) {
-        origem.setEnabled(false);
-        cursor(origem, Cursor.WAIT_CURSOR);
-        new SwingWorker<T, Void>() {
+    /** Tarefas ainda não concluídas; os testes de ponta a ponta esperam este número zerar. */
+    static int emAndamento() {
+        return EM_ANDAMENTO.get();
+    }
+
+    public static <T> void executar(Node origem, Aviso aviso, Callable<T> trabalho, Consumer<T> aoConcluir) {
+        origem.setDisable(true);
+        aviso.limpar();
+        Task<T> tarefa = new Task<>() {
             @Override
-            protected T doInBackground() throws Exception {
+            protected T call() throws Exception {
                 return trabalho.call();
             }
-
-            @Override
-            protected void done() {
-                origem.setEnabled(true);
-                cursor(origem, Cursor.DEFAULT_CURSOR);
-                try {
-                    aoConcluir.accept(get());
-                } catch (ExecutionException e) {
-                    LOG.warn("Operação recusada ou falhou: {}", e.getCause().toString());
-                    LOG.debug("Detalhes", e.getCause());
-                    erro(origem, Mensagens.de(e.getCause()));
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
+        };
+        tarefa.setOnSucceeded(e -> {
+            try {
+                origem.setDisable(false);
+                aoConcluir.accept(tarefa.getValue());
+            } finally {
+                EM_ANDAMENTO.decrementAndGet();
             }
-        }.execute();
-    }
-
-    /** A origem pode ainda não estar numa janela quando a tela dispara a carga inicial no construtor. */
-    private static void cursor(JComponent origem, int tipo) {
-        if (origem.getTopLevelAncestor() != null) origem.getTopLevelAncestor().setCursor(Cursor.getPredefinedCursor(tipo));
-    }
-
-    public static void erro(JComponent origem, String mensagem) {
-        JOptionPane.showMessageDialog(origem, mensagem, "HospedaBem", JOptionPane.ERROR_MESSAGE);
-    }
-
-    public static void info(JComponent origem, String mensagem) {
-        JOptionPane.showMessageDialog(origem, mensagem, "HospedaBem", JOptionPane.INFORMATION_MESSAGE);
+        });
+        tarefa.setOnFailed(e -> {
+            try {
+                origem.setDisable(false);
+                LOG.warn("Operação recusada ou falhou: {}", tarefa.getException().toString());
+                LOG.debug("Detalhes", tarefa.getException());
+                aviso.erro(Mensagens.de(tarefa.getException()));
+            } finally {
+                EM_ANDAMENTO.decrementAndGet();
+            }
+        });
+        EM_ANDAMENTO.incrementAndGet();
+        Thread thread = new Thread(tarefa, "hospedabem-tarefa");
+        thread.setDaemon(true);
+        thread.start();
     }
 }

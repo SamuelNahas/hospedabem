@@ -1,47 +1,47 @@
 package hospedabem.view;
 
 import hospedabem.controller.ControladorAutenticacao;
+import javafx.geometry.Pos;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import org.springframework.context.ConfigurableApplicationContext;
 
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JPasswordField;
-import javax.swing.JTextField;
-import javax.swing.SwingConstants;
-import java.awt.BorderLayout;
-
 /** UC01 Autenticar-se. */
-public class TelaLogin extends JFrame {
+public class TelaLogin extends StackPane {
 
     public TelaLogin(ConfigurableApplicationContext contexto) {
-        super("HospedaBem - Login");
         ControladorAutenticacao controlador = contexto.getBean(ControladorAutenticacao.class);
-        JTextField matricula = new JTextField(15);
-        JPasswordField senha = new JPasswordField(15);
-        JButton entrar = new JButton("Entrar");
+        Aviso aviso = new Aviso();
+        TextField matricula = new TextField();
+        matricula.setPromptText("ex.: recep01");
+        PasswordField senha = new PasswordField();
+        Button entrar = Campos.botao("Entrar", "botao-primario");
+        entrar.setDefaultButton(true);
+        entrar.setMaxWidth(Double.MAX_VALUE);
 
-        entrar.addActionListener(e -> {
+        entrar.setOnAction(e -> {
             String m = matricula.getText();
-            char[] s = senha.getPassword();
-            senha.setText("");
-            Tarefa.executar(entrar, () -> controlador.autenticar(m, s), funcionario -> {
-                new TelaPrincipal(contexto, funcionario).setVisible(true);
-                dispose();
-            });
+            char[] s = senha.getText().toCharArray();
+            senha.clear();
+            Tarefa.executar(entrar, aviso, () -> controlador.autenticar(m, s),
+                    funcionario -> getScene().setRoot(new TelaPrincipal(contexto, funcionario)));
         });
-        getRootPane().setDefaultButton(entrar);
 
-        JPanel painel = new JPanel(new BorderLayout(8, 8));
-        painel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-        painel.add(new JLabel("HospedaBem - Sistema de Hospedagem", SwingConstants.CENTER), BorderLayout.NORTH);
-        painel.add(Campos.formulario("Matrícula", matricula, "Senha", senha), BorderLayout.CENTER);
-        painel.add(entrar, BorderLayout.SOUTH);
-        setContentPane(painel);
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
-        pack();
-        setLocationRelativeTo(null);
+        Label marca = new Label("HospedaBem");
+        marca.getStyleClass().add("marca-login");
+        Label subtitulo = new Label("Sistema de hospedagem · acesso de funcionários");
+        subtitulo.getStyleClass().add("subtitulo-pagina");
+        VBox cartao = new VBox(marca, subtitulo, aviso,
+                Campos.formulario("Matrícula", matricula, "Senha", senha), entrar);
+        cartao.getStyleClass().addAll("cartao", "cartao-login");
+        cartao.setMaxWidth(380);
+        cartao.setMaxHeight(VBox.USE_PREF_SIZE);
+        getChildren().add(cartao);
+        setAlignment(Pos.CENTER);
+        getStyleClass().add("fundo-login");
     }
 }

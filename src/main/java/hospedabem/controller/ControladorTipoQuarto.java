@@ -42,7 +42,6 @@ public class ControladorTipoQuarto {
     @Transactional
     public TipoQuarto incluir(TipoQuarto t) {
         sessao.exigir(Perfil.ADMINISTRADOR);
-        exigirCodigoLivre(t);
         try {
             int id = dao.inserir(t);
             return new TipoQuarto(id, t.codigo(), t.descricao(), t.capacidadeMaxima(), t.valorDiaria());
@@ -56,7 +55,6 @@ public class ControladorTipoQuarto {
     public void alterar(TipoQuarto t) {
         sessao.exigir(Perfil.ADMINISTRADOR);
         dao.bloquear(List.of(t.id()));
-        exigirCodigoLivre(t);
         int exigido = dao.maiorOcupacaoVigente(t.id(), LocalDate.now(relogio));
         if (t.capacidadeMaxima() < exigido)
             throw new NegocioException("Capacidade não pode ser reduzida para " + t.capacidadeMaxima()
@@ -78,12 +76,7 @@ public class ControladorTipoQuarto {
         }
     }
 
-    private void exigirCodigoLivre(TipoQuarto t) {
-        dao.buscarPorCodigo(t.codigo()).filter(existente -> existente.id() != t.id()).ifPresent(e -> {
-            throw codigoDuplicado(t);
-        });
-    }
-
+    /** A unicidade do código é garantida pela restrição UNIQUE; aqui só se traduz a mensagem. */
     private static NegocioException codigoDuplicado(TipoQuarto t) {
         return new NegocioException("Já existe tipo de quarto com o código " + t.codigo() + ".");
     }

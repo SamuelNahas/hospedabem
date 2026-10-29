@@ -3,78 +3,57 @@ package hospedabem.view;
 import hospedabem.controller.ControladorTipoQuarto;
 import hospedabem.model.NegocioException;
 import hospedabem.model.TipoQuarto;
-
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JDialog;
-import javax.swing.JFrame;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.JTextField;
-import javax.swing.table.DefaultTableModel;
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.util.ArrayList;
-import java.util.List;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
 
 /** UC03 Gerenciar Tipo de Quarto: inclusão, listagem, busca, alteração e exclusão. */
-public class TelaTipoQuarto extends JDialog {
+public class TelaTipoQuarto extends Pagina {
     private final ControladorTipoQuarto controlador;
-    private final DefaultTableModel modelo = Campos.modeloSomenteLeitura("Código", "Descrição", "Capacidade", "Diária");
-    private final JTable tabela = Campos.tabela(modelo);
-    private final JTextField codigo = new JTextField(10);
-    private final JTextField descricao = new JTextField(25);
-    private final JTextField capacidade = new JTextField(5);
-    private final JTextField diaria = new JTextField(10);
-    private List<TipoQuarto> tipos = new ArrayList<>();
+    private final TableView<TipoQuarto> tabela = Campos.tabela(
+            Campos.coluna("Código", TipoQuarto::codigo),
+            Campos.coluna("Descrição", TipoQuarto::descricao),
+            Campos.coluna("Capacidade", TipoQuarto::capacidadeMaxima),
+            Campos.coluna("Diária", t -> Campos.moeda(t.valorDiaria())));
+    private final TextField codigo = new TextField();
+    private final TextField descricao = new TextField();
+    private final TextField capacidade = new TextField();
+    private final TextField diaria = new TextField();
+    private final Button salvar = Campos.botao("Salvar", "botao-primario");
     private TipoQuarto selecionado;
 
-    public TelaTipoQuarto(JFrame dono, ControladorTipoQuarto controlador) {
-        super(dono, "Tipos de quarto", true);
+    public TelaTipoQuarto(ControladorTipoQuarto controlador) {
+        super("Tipos de quarto", "Cada tipo define a capacidade máxima de hóspedes e o valor da diária.");
         this.controlador = controlador;
 
-        JButton novo = new JButton("Novo");
-        JButton salvar = new JButton("Salvar");
-        JButton excluir = new JButton("Excluir");
-        JButton buscar = new JButton("Buscar por código");
-        novo.addActionListener(e -> selecionar(null));
-        salvar.addActionListener(e -> salvar(salvar));
-        excluir.addActionListener(e -> excluir(excluir));
-        buscar.addActionListener(e -> Tarefa.executar(buscar, () -> controlador.buscar(codigo.getText()),
-                encontrado -> encontrado.ifPresentOrElse(this::selecionar,
-                        () -> Tarefa.info(buscar, "Nenhum tipo com o código " + codigo.getText() + "."))));
-        tabela.getSelectionModel().addListSelectionListener(e -> {
-            int linha = tabela.getSelectedRow();
-            if (!e.getValueIsAdjusting() && linha >= 0) selecionar(tipos.get(linha));
+        Button novo = Campos.botao("Novo", "botao-secundario");
+        Button excluir = Campos.botao("Excluir", "botao-perigo");
+        Button buscar = Campos.botao("Buscar por código", "botao-secundario");
+        novo.setOnAction(e -> selecionar(null));
+        salvar.setOnAction(e -> salvar());
+        excluir.setOnAction(e -> excluir(excluir));
+        buscar.setOnAction(e -> {
+            String c = codigo.getText();
+            Tarefa.executar(buscar, aviso, () -> controlador.buscar(c), encontrado -> encontrado.ifPresentOrElse(
+                    this::selecionar, () -> aviso.erro("Nenhum tipo com o código " + c + ".")));
+        });
+        tabela.getSelectionModel().selectedItemProperty().addListener((obs, antes, t) -> {
+            if (t != null) selecionar(t);
         });
 
-        JPanel acoes = new JPanel();
-        for (JButton b : new JButton[]{novo, salvar, excluir, buscar}) acoes.add(b);
-        JPanel sul = new JPanel(new BorderLayout());
-        sul.add(Campos.formulario("Código", codigo, "Descrição", descricao, "Capacidade máxima", capacidade,
-                "Valor da diária (R$)", diaria), BorderLayout.CENTER);
-        sul.add(acoes, BorderLayout.SOUTH);
-        JPanel painel = new JPanel(new BorderLayout(6, 6));
-        painel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-        JScrollPane rolagem = new JScrollPane(tabela);
-        rolagem.setPreferredSize(new Dimension(520, 200));
-        painel.add(rolagem, BorderLayout.CENTER);
-        painel.add(sul, BorderLayout.SOUTH);
-        setContentPane(painel);
-        pack();
-        setLocationRelativeTo(dono);
-        recarregar(novo);
+        getChildren().addAll(
+                Campos.cartao("Tipos cadastrados", tabela),
+                Campos.cartao("Dados do tipo",
+                        Campos.formulario("Código", codigo, "Descrição", descricao, "Capacidade máxima", capacidade,
+                                "Valor da diária (R$)", diaria),
+                        Campos.acoes(salvar, novo, buscar, excluir)));
+        recarregar();
     }
 
-    private void recarregar(JButton origem) {
-        Tarefa.executar(origem, controlador::listar, lista -> {
-            tipos = lista;
-            modelo.setRowCount(0);
-            for (TipoQuarto t : lista)
-                modelo.addRow(new Object[]{t.codigo(), t.descricao(), t.capacidadeMaxima(), Campos.moeda(t.valorDiaria())});
-        });
+    private void recarregar() {
+        Tarefa.executar(salvar, aviso, controlador::listar, lista -> tabela.getItems().setAll(lista));
     }
 
     private void selecionar(TipoQuarto t) {
@@ -83,43 +62,46 @@ public class TelaTipoQuarto extends JDialog {
         descricao.setText(t == null ? "" : t.descricao());
         capacidade.setText(t == null ? "" : String.valueOf(t.capacidadeMaxima()));
         diaria.setText(t == null ? "" : Campos.decimalTexto(t.valorDiaria()));
-        if (t == null) tabela.clearSelection();
+        if (t == null) tabela.getSelectionModel().clearSelection();
     }
 
-    private void salvar(JButton origem) {
+    private void salvar() {
         TipoQuarto t;
         try {
             t = new TipoQuarto(selecionado == null ? 0 : selecionado.id(), codigo.getText(), descricao.getText(),
-                    Campos.inteiro(capacidade, "Capacidade"), Campos.decimal(diaria, "Valor da diária"));
+                    Campos.inteiro(capacidade.getText(), "Capacidade"), Campos.decimal(diaria.getText(), "Valor da diária"));
         } catch (NegocioException e) {
-            Tarefa.erro(origem, e.getMessage());
+            aviso.erro(e.getMessage());
             return;
         }
-        Tarefa.executar(origem, () -> {
-            if (selecionado == null) controlador.incluir(t);
+        boolean inclusao = selecionado == null;
+        Tarefa.executar(salvar, aviso, () -> {
+            if (inclusao) controlador.incluir(t);
             else controlador.alterar(t);
             return t;
         }, ok -> {
-            Tarefa.info(origem, "Tipo " + t.codigo() + " gravado.");
             selecionar(null);
-            recarregar(origem);
+            recarregar();
+            aviso.sucesso("Tipo " + t.codigo() + " gravado.");
         });
     }
 
-    private void excluir(JButton origem) {
+    private void excluir(Button origem) {
         if (selecionado == null) {
-            Tarefa.erro(origem, "Selecione um tipo na lista.");
+            aviso.erro("Selecione um tipo na lista.");
             return;
         }
         TipoQuarto alvo = selecionado;
-        if (JOptionPane.showConfirmDialog(this, "Excluir o tipo " + alvo.codigo() + "?", "Confirmar",
-                JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) return;
-        Tarefa.executar(origem, () -> {
+        Alert confirmacao = new Alert(Alert.AlertType.CONFIRMATION, "Excluir o tipo " + alvo.codigo() + "?",
+                ButtonType.YES, ButtonType.NO);
+        if (confirmacao.showAndWait().orElse(ButtonType.NO) != ButtonType.YES) return;
+        Tarefa.executar(origem, aviso, () -> {
             controlador.excluir(alvo);
             return alvo;
         }, ok -> {
             selecionar(null);
-            recarregar(origem);
+            recarregar();
+            aviso.sucesso("Tipo " + alvo.codigo() + " excluído.");
         });
     }
 }

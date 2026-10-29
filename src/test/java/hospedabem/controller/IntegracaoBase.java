@@ -1,5 +1,6 @@
 package hospedabem.controller;
 
+import hospedabem.BancoDeTeste;
 import hospedabem.dao.FuncionarioDAO;
 import hospedabem.dao.InicializadorBanco;
 import hospedabem.model.Hospedagem;
@@ -40,12 +41,7 @@ abstract class IntegracaoBase {
 
     @BeforeEach
     void recriarBancoDeTeste() {
-        String banco = jdbc.queryForObject("SELECT current_database()", String.class);
-        if (!banco.endsWith("_test"))
-            throw new IllegalStateException("Recusado: testes só recriam bancos *_test, não " + banco);
-        jdbc.execute("DROP SCHEMA public CASCADE");
-        jdbc.execute("CREATE SCHEMA public");
-        inicializador.inicializarSeVazio();
+        BancoDeTeste.recriar(jdbc, inicializador);
         logarComo("admin01");
     }
 

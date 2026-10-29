@@ -5,80 +5,84 @@ import hospedabem.controller.ControladorReserva;
 import hospedabem.controller.Disponibilidade;
 import hospedabem.model.Reserva;
 import hospedabem.model.TipoQuarto;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.DatePicker;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JDialog;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JTextField;
-import java.awt.BorderLayout;
 import java.time.LocalDate;
 
 /** UC08 Registrar Reserva. O código é gerado pelo banco e o funcionário é o da sessão. */
-public class TelaReserva extends JDialog {
+public class TelaReserva extends Pagina {
 
-    public TelaReserva(JFrame dono, ControladorReserva controlador, ControladorDisponibilidade consultas) {
-        super(dono, "Registrar reserva", true);
-        JTextField cpf = new JTextField(14);
-        JLabel nome = new JLabel(" ");
-        JComboBox<TipoQuarto> tipo = new JComboBox<>();
-        JTextField entrada = new JTextField(Campos.texto(LocalDate.now()), 10);
-        JTextField saida = new JTextField(Campos.texto(LocalDate.now().plusDays(1)), 10);
-        JTextField quantidade = new JTextField("1", 4);
-        JLabel resultado = new JLabel(" ");
-        JButton buscar = new JButton("Buscar hóspede");
-        JButton verificar = new JButton("Verificar disponibilidade");
-        JButton registrar = new JButton("Registrar reserva");
+    public TelaReserva(ControladorReserva controlador, ControladorDisponibilidade consultas) {
+        super("Registrar reserva", "A reserva garante um tipo de quarto no período; o quarto é escolhido no check-in.");
+        TextField cpf = new TextField();
+        cpf.setPromptText("CPF ou passaporte");
+        Button buscar = Campos.botao("Buscar hóspede", "botao-secundario");
+        Label nome = new Label("—");
+        nome.getStyleClass().add("destaque");
+        ComboBox<TipoQuarto> tipo = new ComboBox<>();
+        tipo.setMaxWidth(Double.MAX_VALUE);
+        DatePicker entrada = Campos.seletorData(LocalDate.now());
+        DatePicker saida = Campos.seletorData(LocalDate.now().plusDays(1));
+        TextField quantidade = new TextField("1");
+        Label disponibilidade = new Label();
+        disponibilidade.getStyleClass().add("dica");
+        Button verificar = Campos.botao("Verificar disponibilidade", "botao-secundario");
+        Button registrar = Campos.botao("Confirmar reserva", "botao-primario");
 
-        buscar.addActionListener(e -> Tarefa.executar(buscar, () -> controlador.buscarResponsavel(cpf.getText()),
-                h -> nome.setText(h.nome() + " - tel. " + h.telefone())));
-        verificar.addActionListener(e -> {
-            TipoQuarto t = (TipoQuarto) tipo.getSelectedItem();
-            Tarefa.executar(verificar, () -> consultas.consultar(Campos.data(entrada, "Data de entrada"),
-                    Campos.data(saida, "Data de saída"), t == null ? null : t.codigo()).get(0), d -> resultado.setText(
-                    texto(d)));
+        buscar.setOnAction(e -> {
+            String doc = cpf.getText();
+            Tarefa.executar(buscar, aviso, () -> controlador.buscarResponsavel(doc),
+                    h -> nome.setText(h.nome() + " · tel. " + h.telefone()));
         });
-        registrar.addActionListener(e -> {
-            TipoQuarto t = (TipoQuarto) tipo.getSelectedItem();
-            Tarefa.executar(registrar, () -> controlador.registrar(cpf.getText(), t == null ? null : t.codigo(),
-                    Campos.data(entrada, "Data de entrada"), Campos.data(saida, "Data de saída"),
-                    Campos.inteiro(quantidade, "Quantidade de hóspedes")), r -> {
-                resultado.setText("Reserva " + r.getCodigo() + " registrada.");
-                Tarefa.info(registrar, resumo(r));
-            });
+        verificar.setOnAction(e -> {
+            String de = Campos.textoData(entrada);
+            String ate = Campos.textoData(saida);
+            String codigo = tipo.getValue() == null ? null : tipo.getValue().codigo();
+            Tarefa.executar(verificar, aviso, () -> consultas.consultar(Campos.data(de, "Data de entrada"),
+                    Campos.data(ate, "Data de saída"), codigo).get(0), d -> disponibilidade.setText(texto(d)));
+        });
+        registrar.setOnAction(e -> {
+            String doc = cpf.getText();
+            String de = Campos.textoData(entrada);
+            String ate = Campos.textoData(saida);
+            String qtd = quantidade.getText();
+            String codigo = tipo.getValue() == null ? null : tipo.getValue().codigo();
+            Tarefa.executar(registrar, aviso, () -> controlador.registrar(doc, codigo, Campos.data(de, "Data de entrada"),
+                    Campos.data(ate, "Data de saída"), Campos.inteiro(qtd, "Quantidade de hóspedes")),
+                    r -> aviso.sucesso(resumo(r)));
         });
 
-        JPanel botoes = new JPanel();
-        botoes.add(verificar);
-        botoes.add(registrar);
-        JPanel sul = new JPanel(new BorderLayout());
-        sul.add(resultado, BorderLayout.NORTH);
-        sul.add(botoes, BorderLayout.SOUTH);
-        JPanel painel = new JPanel(new BorderLayout(6, 6));
-        painel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-        painel.add(Campos.formulario("CPF/passaporte do responsável", cpf, "", buscar, "Responsável", nome,
-                "Tipo de quarto", tipo, "Entrada prevista (dd/mm/aaaa)", entrada, "Saída prevista (dd/mm/aaaa)", saida,
-                "Quantidade de hóspedes", quantidade), BorderLayout.CENTER);
-        painel.add(sul, BorderLayout.SOUTH);
-        setContentPane(painel);
-        pack();
-        setLocationRelativeTo(dono);
-        Tarefa.executar(registrar, consultas::listarTipos, lista -> lista.forEach(tipo::addItem));
+        HBox linhaCpf = new HBox(cpf, buscar);
+        linhaCpf.getStyleClass().add("linha");
+        HBox.setHgrow(cpf, Priority.ALWAYS);
+        getChildren().addAll(
+                Campos.cartao("Hóspede responsável", Campos.formulario("CPF/passaporte do responsável", linhaCpf,
+                        "Responsável", nome)),
+                Campos.cartao("Estadia", Campos.formulario("Tipo de quarto", tipo, "Entrada prevista", entrada,
+                        "Saída prevista", saida, "Quantidade de hóspedes", quantidade), disponibilidade,
+                        Campos.acoes(registrar, verificar)));
+        Tarefa.executar(registrar, aviso, consultas::listarTipos, lista -> {
+            tipo.getItems().setAll(lista);
+            if (!lista.isEmpty()) tipo.setValue(lista.get(0));
+        });
     }
 
     private static String texto(Disponibilidade d) {
         return d.livres() > 0
-                ? d.livres() + " quarto(s) " + d.tipo().codigo() + " disponível(is). Capacidade " + d.tipo().capacidadeMaxima()
-                + ", diária " + Campos.moeda(d.tipo().valorDiaria()) + "."
+                ? d.livres() + " quarto(s) " + d.tipo().codigo() + " disponível(is) · capacidade "
+                + d.tipo().capacidadeMaxima() + " · diária " + Campos.moeda(d.tipo().valorDiaria())
                 : "Sem disponibilidade do tipo " + d.tipo().codigo() + " no período.";
     }
 
     private static String resumo(Reserva r) {
-        return "Reserva " + r.getCodigo() + " registrada.\nResponsável: " + r.getResponsavel().nome()
-                + "\nTipo: " + r.getTipo() + "\nPeríodo: " + Campos.texto(r.getPeriodo().entrada()) + " a "
-                + Campos.texto(r.getPeriodo().saida()) + "\nHóspedes: " + r.getQuantidadeHospedes();
+        return "Reserva " + r.getCodigo() + " registrada · " + r.getResponsavel().nome() + " · " + r.getTipo()
+                + " · " + Campos.texto(r.getPeriodo().entrada()) + " a " + Campos.texto(r.getPeriodo().saida())
+                + " · " + r.getQuantidadeHospedes() + " hóspede(s)";
     }
 }
