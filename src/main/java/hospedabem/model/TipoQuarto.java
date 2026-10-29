@@ -13,6 +13,12 @@ public record TipoQuarto(int id, String codigo, String descricao, int capacidade
         descricao = descricao.trim();
     }
 
+    public void exigirComporta(int hospedes) {
+        if (hospedes > capacidadeMaxima)
+            throw new NegocioException("O tipo " + codigo + " comporta " + capacidadeMaxima
+                    + " hóspede(s); são necessários " + hospedes + ".");
+    }
+
     @Override
     public String toString() {
         return codigo + " - " + descricao;

@@ -1,6 +1,7 @@
 package hospedabem.controller;
 
 import hospedabem.dao.TipoQuartoDAO;
+import hospedabem.model.Disponibilidade;
 import hospedabem.model.NegocioException;
 import hospedabem.model.Periodo;
 import hospedabem.model.TipoQuarto;
@@ -11,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 
-/** UC07 Consultar Disponibilidade de Quartos. */
 @Component
 public class ControladorDisponibilidade {
     private final Sessao sessao;
@@ -26,16 +26,15 @@ public class ControladorDisponibilidade {
         this.jdbc = jdbc;
     }
 
-    /** codigoTipo null consulta todos os tipos. */
     @Transactional(readOnly = true)
     public List<Disponibilidade> consultar(LocalDate entrada, LocalDate saida, String codigoTipo) {
         sessao.exigirQualquerPerfil();
         Periodo periodo = new Periodo(entrada, saida);
-        jdbc.execute("SET LOCAL statement_timeout = 3000"); // RNF-2
+        jdbc.execute("SET LOCAL statement_timeout = 3000");
         List<TipoQuarto> tipos = codigoTipo == null ? tipoDAO.listar()
                 : List.of(tipoDAO.buscarPorCodigo(codigoTipo)
                 .orElseThrow(() -> new NegocioException("Tipo de quarto não cadastrado: " + codigoTipo)));
-        return tipos.stream().map(t -> servico.calcular(t, periodo, ServicoDisponibilidade.NENHUMA_RESERVA)).toList();
+        return tipos.stream().map(t -> servico.calcular(t, periodo)).toList();
     }
 
     @Transactional(readOnly = true)

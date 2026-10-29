@@ -7,7 +7,6 @@ import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.transaction.CannotCreateTransactionException;
 
-/** Converte exceções em mensagens para o funcionário, sem stack trace nem detalhes de conexão. */
 public final class Mensagens {
     private Mensagens() {
     }

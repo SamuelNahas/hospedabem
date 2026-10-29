@@ -10,11 +10,7 @@ import java.util.Optional;
 
 @Repository
 public class DisponibilidadeDAO {
-    /**
-     * Estadias que consomem um quarto do tipo: reservas CONFIRMADAS (a convertida já está representada pela
-     * hospedagem que originou; a cancelada não ocupa) e hospedagens ATIVAS. A hospedagem ativa ocupa até a saída
-     * prevista ou, se atrasada, até amanhã: ela nunca é encerrada automaticamente.
-     */
+    // Hospedagem atrasada não é encerrada automaticamente: ocupa ao menos até amanhã.
     private static final String ESTADIAS = """
             SELECT data_entrada_prevista AS entrada, data_saida_prevista AS saida FROM reserva
              WHERE tipo_quarto_id = ? AND situacao = 'CONFIRMADA' AND id <> ?
@@ -33,7 +29,6 @@ public class DisponibilidadeDAO {
         this.jdbc = jdbc;
     }
 
-    /** Quartos do tipo que contam para disponibilidade: todos, exceto os em manutenção. */
     public int quartosOperacionais(int tipoId) {
         return jdbc.queryForObject("SELECT COUNT(*) FROM quarto WHERE tipo_quarto_id = ? AND situacao <> 'MANUTENCAO'",
                 Integer.class, tipoId);
@@ -46,7 +41,6 @@ public class DisponibilidadeDAO {
                 hoje, tipoId, consulta.saida(), consulta.entrada());
     }
 
-    /** Última data comprometida por reservas confirmadas ou hospedagens ativas do tipo, se posterior a hoje. */
     public Optional<LocalDate> fimDosCompromissos(int tipoId, LocalDate hoje) {
         LocalDate fim = jdbc.queryForObject("""
                 SELECT GREATEST(

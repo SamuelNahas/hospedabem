@@ -135,7 +135,7 @@ class TelasE2E {
         robo.escreverData("Saída prevista", HOJE.plusDays(3));
         robo.escrever("Quantidade de hóspedes", "3");
         robo.clicar("Confirmar reserva");
-        assertEquals("Quantidade de hóspedes (3) excede a capacidade do tipo STD (2).", robo.aviso());
+        assertEquals("O tipo STD comporta 2 hóspede(s); são necessários 3.", robo.aviso());
 
         robo.escrever("Quantidade de hóspedes", "2");
         robo.clicar("Verificar disponibilidade");
@@ -213,7 +213,7 @@ class TelasE2E {
             robo.escreverNoCampoComDica("CPF ou passaporte do hóspede", documento);
             robo.clicar("Adicionar hóspede");
         }
-        assertEquals("Capacidade do quarto excedida: o tipo STD comporta 2 hóspede(s).", robo.aviso());
+        assertEquals("O tipo STD comporta 2 hóspede(s); são necessários 3.", robo.aviso());
 
         robo.clicar("Consultar quartos disponíveis");
         assertEquals(2, robo.linhasDaTabela()); // 103 está em manutenção

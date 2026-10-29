@@ -9,7 +9,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
-/** Executa o acesso ao banco fora da thread do JavaFX e devolve o resultado ou o erro a ela. */
 public final class Tarefa {
     private static final Logger LOG = LoggerFactory.getLogger(Tarefa.class);
     private static final AtomicInteger EM_ANDAMENTO = new AtomicInteger();
@@ -17,7 +16,7 @@ public final class Tarefa {
     private Tarefa() {
     }
 
-    /** Tarefas ainda não concluídas; os testes de ponta a ponta esperam este número zerar. */
+    // Usado pelos testes de ponta a ponta para esperar o banco responder.
     static int emAndamento() {
         return EM_ANDAMENTO.get();
     }

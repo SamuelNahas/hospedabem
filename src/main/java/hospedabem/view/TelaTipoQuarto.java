@@ -3,13 +3,10 @@ package hospedabem.view;
 import hospedabem.controller.ControladorTipoQuarto;
 import hospedabem.model.NegocioException;
 import hospedabem.model.TipoQuarto;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 
-/** UC03 Gerenciar Tipo de Quarto: inclusão, listagem, busca, alteração e exclusão. */
 public class TelaTipoQuarto extends Pagina {
     private final ControladorTipoQuarto controlador;
     private final TableView<TipoQuarto> tabela = Campos.tabela(
@@ -92,9 +89,7 @@ public class TelaTipoQuarto extends Pagina {
             return;
         }
         TipoQuarto alvo = selecionado;
-        Alert confirmacao = new Alert(Alert.AlertType.CONFIRMATION, "Excluir o tipo " + alvo.codigo() + "?",
-                ButtonType.YES, ButtonType.NO);
-        if (confirmacao.showAndWait().orElse(ButtonType.NO) != ButtonType.YES) return;
+        if (!Campos.confirmar("Excluir o tipo " + alvo.codigo() + "?")) return;
         Tarefa.executar(origem, aviso, () -> {
             controlador.excluir(alvo);
             return alvo;

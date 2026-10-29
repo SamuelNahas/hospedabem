@@ -7,7 +7,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 
-/** UC01 Autenticar-se. */
 @Component
 public class ControladorAutenticacao {
     private static final String HASH_FICTICIO = Senha.gerarHash("indisponivel".toCharArray());

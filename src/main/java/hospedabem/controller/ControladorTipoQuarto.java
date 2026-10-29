@@ -14,7 +14,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-/** UC03 Gerenciar Tipo de Quarto (somente administrador, RF-3). */
 @Component
 public class ControladorTipoQuarto {
     private final Sessao sessao;
@@ -43,22 +42,17 @@ public class ControladorTipoQuarto {
     public TipoQuarto incluir(TipoQuarto t) {
         sessao.exigir(Perfil.ADMINISTRADOR);
         try {
-            int id = dao.inserir(t);
-            return new TipoQuarto(id, t.codigo(), t.descricao(), t.capacidadeMaxima(), t.valorDiaria());
+            return new TipoQuarto(dao.inserir(t), t.codigo(), t.descricao(), t.capacidadeMaxima(), t.valorDiaria());
         } catch (DuplicateKeyException e) {
             throw codigoDuplicado(t);
         }
     }
 
-    /** Capacidade não pode ficar abaixo do exigido por reservas vigentes ou hospedagens ativas. */
     @Transactional
     public void alterar(TipoQuarto t) {
         sessao.exigir(Perfil.ADMINISTRADOR);
         dao.bloquear(List.of(t.id()));
-        int exigido = dao.maiorOcupacaoVigente(t.id(), LocalDate.now(relogio));
-        if (t.capacidadeMaxima() < exigido)
-            throw new NegocioException("Capacidade não pode ser reduzida para " + t.capacidadeMaxima()
-                    + ": há reserva ou hospedagem deste tipo com " + exigido + " hóspede(s).");
+        t.exigirComporta(dao.maiorOcupacaoVigente(t.id(), LocalDate.now(relogio)));
         try {
             dao.atualizar(t);
         } catch (DuplicateKeyException e) {
@@ -76,7 +70,6 @@ public class ControladorTipoQuarto {
         }
     }
 
-    /** A unicidade do código é garantida pela restrição UNIQUE; aqui só se traduz a mensagem. */
     private static NegocioException codigoDuplicado(TipoQuarto t) {
         return new NegocioException("Já existe tipo de quarto com o código " + t.codigo() + ".");
     }

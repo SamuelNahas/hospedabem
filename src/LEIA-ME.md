@@ -29,7 +29,7 @@ Este ZIP contém só a pasta `src/`. O projeto completo, com `pom.xml`, `README.
 2. Rode:
 
 ```bash
-mvn test                        # 84 testes: unitários, integração e E2E (exige o banco hospedabem_test)
+mvn test                        # 100 testes: unitários, integração e E2E (exige o banco hospedabem_test)
 mvn package -DskipTests         # gera target/hospedabem.jar
 java -jar target/hospedabem.jar # executa a aplicação desktop
 ```

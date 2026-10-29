@@ -26,16 +26,31 @@ O Spring Boot é usado como contêiner de injeção de dependências e gerenciad
 ```
 src/main/java/hospedabem/
 ├── App.java            ponto de entrada (Spring Boot + JavaFX)
-├── model/              Model: entidades e regras (Quarto.ocupar, Reserva.converter, Hospedagem, Periodo, Ocupacao...)
+├── model/              Model: entidades e TODAS as regras de negócio, sem banco nem tela (Atendimento, Quarto, Reserva, ...)
 ├── dao/                persistência JDBC (QuartoDAO, ReservaDAO, HospedagemDAO, ...)
-├── controller/         Controller: permissões, coordenação e transações (ControladorCheckIn, ...)
+├── controller/         Controller: permissão, transação, bloqueio e DAOs; delega as regras ao model
 └── view/               View: telas JavaFX (TelaLogin, TelaPrincipal, TelaCheckIn, ...), sem SQL e sem regra de negócio
 src/main/resources/
 ├── application.properties
 ├── hospedabem/view/estilo.css   tema visual (CSS do JavaFX)
 └── db/schema.sql, db/seed.sql
-src/test/java/hospedabem/   testes unitários (*Test) e de integração no PostgreSQL (*IT)
+src/test/java/hospedabem/   testes unitários (*Test), de integração (*IT) e de ponta a ponta (TelasE2E)
 ```
+
+As regras de negócio ficam no `model` e são testadas sem banco:
+
+| Regra | Onde |
+|---|---|
+| Capacidade do tipo (reserva, check-in e alteração do tipo) | `TipoQuarto.exigirComporta` |
+| Situação definível no cadastro, quarto com hospedagem ativa (RN-Q02, RN-Q04) | `Quarto.exigirSituacaoDeCadastro`, `Quarto.exigirAlteracaoPara` |
+| Quarto livre para entrada (RN-CI04) | `Quarto.exigirLivrePara` |
+| Reserva utilizável no check-in (RN-CI06) | `Reserva.exigirPermiteCheckIn` |
+| Dados da nova reserva | `SolicitacaoReserva.validar` |
+| Período `[entrada, saída)` e pico de ocupação | `Periodo`, `Ocupacao.pico` |
+| Vaga no tipo | `Disponibilidade.exigirVaga` |
+| Check-in: participantes, quarto escolhido, reserva inalterada e contrato de `confirmarCheckIn()` | `Atendimento` |
+
+Os controladores só verificam a permissão, abrem a transação, bloqueiam o tipo, leem e gravam pelos DAOs e chamam essas regras.
 
 Os nomes seguem o DC e o DCP: `TelaCheckIn`, `ControladorCheckIn.confirmarCheckIn()`, `QuartoDAO.buscarPorNumero/atualizar`, `HospedagemDAO.salvar`, `ReservaDAO.atualizar`, `Hospedagem.adicionarHospede/setQuarto`, `Quarto.ocupar()`, `Reserva.converter(Hospedagem)` e `ContaDaHospedagem`.
 
@@ -115,13 +130,13 @@ Há quatro níveis de teste. Todos rodam com `mvn test`, exceto a mutação, que
 
 | Nível | Arquivos | O que cobre | Banco |
 |---|---|---|---|
-| Unitário | `*Test` (27 testes) | Regras puras: `Periodo`, `Ocupacao.pico`, entidades, `Reserva.mesmoEstadoDe`, `Sessao`, hash de senha, mensagens de erro, conversão de campos | não usa |
-| Integração | `*IT` (52 testes) | Controladores + DAOs + PostgreSQL: regras dos 6 UCs, transação do check-in, falha injetada na gravação, concorrência entre conexões, reinício | `hospedabem_test` |
+| Unitário | `*Test` (41 testes) | Todas as regras do `model` (`Atendimento`, `Quarto`, `Reserva`, `SolicitacaoReserva`, `TipoQuarto`, `Periodo`, `Ocupacao`, `Disponibilidade`), `Sessao`, hash de senha, mensagens de erro, conversão de campos | não usa |
+| Integração | `*IT` (54 testes) | Controladores + DAOs + PostgreSQL: regras dos 6 UCs, transação do check-in, falha injetada na gravação, concorrência entre conexões, reinício | `hospedabem_test` |
 | Ponta a ponta (E2E) | `TelasE2E` (5 testes) | Telas JavaFX reais operadas como um usuário (`RoboFx`): login, permissões, cadastros, disponibilidade, reserva, check-in com e sem reserva. Confere a tela e o banco. | `hospedabem_test` |
 | Mutação | PIT (`pitest-maven`) | Altera o código de `model` e `controller` e verifica se algum teste falha | `hospedabem_test` |
 
 ```bash
-mvn test                      # unitários + integração + E2E (84 testes)
+mvn test                      # unitários + integração + E2E (100 testes)
 mvn test -Dtest='*Test'       # somente unitários, sem banco
 mvn test -Dtest='TelasE2E' -Dhb.e2e.capturas=docs/telas   # E2E salvando a captura de cada passo
 mvn test-compile org.pitest:pitest-maven:mutationCoverage  # mutação; relatório em target/pit-reports/index.html
@@ -133,12 +148,12 @@ Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem mon
 
 ### Resultado verificado em 29/10/2026 (OpenJDK 17.0.21, PostgreSQL 17)
 
-- `mvn package`: **84 testes, 0 falhas, 0 erros** (27 unitários, 52 de integração, 5 E2E).
-- Mutação (PIT 1.17.4): **211 mutantes, 205 mortos (97%)**, nenhum sem cobertura, força de teste de 97%. O build exige no mínimo 95% (`mutationThreshold`). Os 6 sobreviventes são equivalentes ou inobserváveis em teste:
+- `mvn package`: **100 testes, 0 falhas, 0 erros** (41 unitários, 54 de integração, 5 E2E).
+- Mutação (PIT 1.17.4): **214 mutantes, 208 mortos (97%)**, nenhum sem cobertura, força de teste de 97%. O build exige no mínimo 95% (`mutationThreshold`). Os 6 sobreviventes são equivalentes ou inobserváveis em teste:
   - 4 remoções de `TipoQuartoDAO.bloquear` nos cadastros de tipo e quarto. O bloqueio só faz diferença com transações concorrentes, e um teste para isso dependeria de corrida de threads, ou seja, seria instável. O bloqueio equivalente da reserva é verificado por `ConcorrenciaIT`.
   - `PBEKeySpec.clearPassword()`: limpeza de memória, sem efeito observável.
   - `SET LOCAL statement_timeout = 3000` da consulta de disponibilidade: só se manifesta com uma consulta lenta.
-- A primeira rodada do PIT (80%) revelou lacunas reais, cobertas depois por testes: etapas do check-in fora de ordem, manutenção do quarto após o resumo com folga no tipo, reserva ou quarto apagados antes da confirmação, capacidade exatamente no limite e senha não apagada da memória. Revelou também duas pré-checagens de duplicidade redundantes com a restrição `UNIQUE` do banco, que foram removidas.
+- A primeira rodada do PIT (80%) revelou lacunas reais, cobertas depois por testes: etapas do check-in fora de ordem, manutenção do quarto após o resumo com folga no tipo, reserva ou quarto apagados antes da confirmação, capacidade exatamente no limite e senha não apagada da memória. Revelou também duas pré-checagens de duplicidade redundantes com a restrição `UNIQUE` do banco, que foram removidas. Depois da separação das regras no `model`, a mutação apontou mais uma lacuna, já coberta: check-in sem reserva quando a última vaga do tipo pertence à reserva de outro hóspede.
 - Os E2E encontraram um problema de interface: o item do menu e o botão da página de reserva tinham o mesmo texto. O botão passou a se chamar "Confirmar reserva". Capturas e mensagens estão em [docs/demonstracao.md](docs/demonstracao.md).
 
 ## Verificação: casos de uso × telas × testes

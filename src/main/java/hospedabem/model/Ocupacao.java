@@ -8,10 +8,7 @@ public final class Ocupacao {
     private Ocupacao() {
     }
 
-    /**
-     * Maior número de estadias simultâneas dentro da consulta, varrendo cada mudança de ocupação.
-     * Somar tudo que toca o intervalo superestimaria a demanda quando as estadias não se sobrepõem entre si.
-     */
+    // Varre cada mudança de ocupação: somar as estadias que tocam a consulta superestima a demanda.
     public static int pico(List<Periodo> estadias, Periodo consulta) {
         TreeMap<LocalDate, Integer> variacao = new TreeMap<>();
         for (Periodo p : estadias) {

@@ -7,7 +7,6 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
 
-/** Hash de senha PBKDF2-HMAC-SHA256 com salt aleatório (RNF-7). Não é reversível. */
 public final class Senha {
     private static final int ITERACOES = 210_000;
     private static final int BYTES_SALT = 16;
@@ -45,7 +44,7 @@ public final class Senha {
         }
     }
 
-    /** Gera o hash de uma senha para scripts de carga: java Senha.java <senha>. */
+    // Gera hashes para a carga inicial: java Senha.java <senha>
     public static void main(String[] args) {
         System.out.println(gerarHash(args[0].toCharArray()));
     }

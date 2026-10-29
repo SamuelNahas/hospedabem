@@ -3,7 +3,9 @@ package hospedabem.view;
 import hospedabem.model.NegocioException;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.Node;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
@@ -24,7 +26,6 @@ import java.util.Locale;
 import java.util.function.Function;
 import javafx.util.StringConverter;
 
-/** Leitura de campos e blocos visuais reutilizados pelas telas. */
 public final class Campos {
     public static final DateTimeFormatter DATA = DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
     public static final DateTimeFormatter DATA_HORA = DateTimeFormatter.ofPattern("dd/MM/uuuu HH:mm");
@@ -58,7 +59,6 @@ public final class Campos {
         }
     }
 
-    /** Seletor de data em dd/mm/aaaa; leia o texto do editor com {@link #textoData} e converta com {@link #data}. */
     public static DatePicker seletorData(LocalDate inicial) {
         DatePicker d = new DatePicker(inicial);
         d.setConverter(new StringConverter<>() {
@@ -80,7 +80,6 @@ public final class Campos {
         return d;
     }
 
-    /** Texto digitado ou escolhido no calendário, lido na thread do JavaFX. */
     public static String textoData(DatePicker d) {
         return d.getEditor().getText();
     }
@@ -97,7 +96,6 @@ public final class Campos {
         return v.toPlainString().replace('.', ',');
     }
 
-    /** Formulário de duas colunas: rótulo, campo, rótulo, campo... O rótulo fica associado ao campo. */
     public static GridPane formulario(Object... rotulosECampos) {
         GridPane grade = new GridPane();
         grade.getStyleClass().add("formulario");
@@ -128,6 +126,11 @@ public final class Campos {
         HBox acoes = new HBox(botoes);
         acoes.getStyleClass().add("acoes");
         return acoes;
+    }
+
+    public static boolean confirmar(String pergunta) {
+        Alert alerta = new Alert(Alert.AlertType.CONFIRMATION, pergunta, ButtonType.YES, ButtonType.NO);
+        return alerta.showAndWait().orElse(ButtonType.NO) == ButtonType.YES;
     }
 
     public static Button botao(String texto, String estilo) {

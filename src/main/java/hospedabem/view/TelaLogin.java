@@ -10,7 +10,6 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import org.springframework.context.ConfigurableApplicationContext;
 
-/** UC01 Autenticar-se. */
 public class TelaLogin extends StackPane {
 
     public TelaLogin(ConfigurableApplicationContext contexto) {

@@ -3,11 +3,11 @@ package hospedabem.controller;
 import hospedabem.dao.HospedeDAO;
 import hospedabem.dao.ReservaDAO;
 import hospedabem.dao.TipoQuartoDAO;
-import hospedabem.model.Funcionario;
 import hospedabem.model.Hospede;
 import hospedabem.model.NegocioException;
 import hospedabem.model.Periodo;
 import hospedabem.model.Reserva;
+import hospedabem.model.SolicitacaoReserva;
 import hospedabem.model.TipoQuarto;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,7 +16,6 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 
-/** UC08 Registrar Reserva (administrador e recepcionista, RF-6). */
 @Component
 public class ControladorReserva {
     private final Sessao sessao;
@@ -44,24 +43,15 @@ public class ControladorReserva {
                         + "iteração 2; nesta versão use os hóspedes da carga inicial."));
     }
 
-    /** Revalida tudo, inclusive a disponibilidade, dentro da transação e com o tipo bloqueado. */
     @Transactional
     public Reserva registrar(String cpfResponsavel, String codigoTipo, LocalDate entrada, LocalDate saida, int quantidade) {
-        Funcionario funcionario = sessao.exigirQualquerPerfil();
-        Hospede responsavel = buscarResponsavel(cpfResponsavel);
+        int funcionarioId = sessao.exigirQualquerPerfil().id();
         TipoQuarto tipo = tipoDAO.buscarPorCodigo(codigoTipo)
                 .orElseThrow(() -> new NegocioException("Tipo de quarto não cadastrado: " + codigoTipo));
-        Periodo periodo = new Periodo(entrada, saida);
-        if (entrada.isBefore(LocalDate.now(relogio)))
-            throw new NegocioException("A data de entrada não pode estar no passado.");
-        if (quantidade <= 0) throw new NegocioException("Quantidade de hóspedes deve ser positiva.");
-        if (quantidade > tipo.capacidadeMaxima())
-            throw new NegocioException("Quantidade de hóspedes (" + quantidade + ") excede a capacidade do tipo "
-                    + tipo.codigo() + " (" + tipo.capacidadeMaxima() + ").");
+        var solicitacao = new SolicitacaoReserva(buscarResponsavel(cpfResponsavel), tipo, new Periodo(entrada, saida), quantidade);
+        solicitacao.validar(LocalDate.now(relogio));
         tipoDAO.bloquear(List.of(tipo.id()));
-        if (disponibilidade.calcular(tipo, periodo, ServicoDisponibilidade.NENHUMA_RESERVA).livres() < 1)
-            throw new NegocioException("Não há quarto do tipo " + tipo.codigo() + " disponível no período informado.");
-        int codigo = reservaDAO.inserir(responsavel.id(), tipo.id(), periodo, quantidade, funcionario.id());
-        return reservaDAO.buscarPorCodigo(codigo).orElseThrow();
+        disponibilidade.calcular(tipo, solicitacao.periodo()).exigirVaga();
+        return reservaDAO.buscarPorCodigo(reservaDAO.inserir(solicitacao, funcionarioId)).orElseThrow();
     }
 }

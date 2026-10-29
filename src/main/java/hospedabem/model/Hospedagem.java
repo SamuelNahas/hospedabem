@@ -28,7 +28,6 @@ public class Hospedagem {
         hospedes.add(h);
     }
 
-    /** Associa o quarto e abre a conta com a diária do tipo (DC 1.2.1 e 1.4). */
     public void setQuarto(Quarto q) {
         quarto = q;
         conta = new ContaDaHospedagem(q.getTipo().valorDiaria());

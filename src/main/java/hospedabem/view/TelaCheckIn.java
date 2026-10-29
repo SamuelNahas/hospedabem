@@ -2,6 +2,7 @@ package hospedabem.view;
 
 import hospedabem.controller.ControladorCheckIn;
 import hospedabem.controller.ControladorDisponibilidade;
+import hospedabem.model.Atendimento;
 import hospedabem.model.Hospedagem;
 import hospedabem.model.Hospede;
 import hospedabem.model.Quarto;
@@ -23,10 +24,6 @@ import javafx.scene.layout.Priority;
 
 import java.time.LocalDate;
 
-/**
- * UC10 Realizar Check-in numa única página com quatro etapas e a confirmação (RNF-12: até 5 etapas).
- * Cada botão corresponde a um evento do DSS.
- */
 public class TelaCheckIn extends Pagina {
     private final ControladorCheckIn controlador;
     private final Label dadosAtendimento = new Label();
@@ -95,7 +92,7 @@ public class TelaCheckIn extends Pagina {
                 String codTipo = tipo.getValue() == null ? null : tipo.getValue().codigo();
                 Tarefa.executar(iniciar, aviso, () -> controlador.iniciarCheckInSemReserva(doc, codTipo,
                                 Campos.data(de, "Data de entrada"), Campos.data(ate, "Data de saída")),
-                        h -> dadosAtendimento.setText(descreverSemReserva(h)));
+                        a -> dadosAtendimento.setText(descreverSemReserva(a)));
             }
         });
         Tarefa.executar(iniciar, aviso, consultas::listarTipos, lista -> {
@@ -122,7 +119,7 @@ public class TelaCheckIn extends Pagina {
         });
         remover.setOnAction(e -> {
             int i = participantes.getSelectionModel().getSelectedIndex();
-            if (i >= 0) controlador.removerHospede(controlador.getParticipantes().get(i));
+            if (i >= 0) controlador.removerHospede(controlador.getAtendimento().getHospedes().get(i));
             atualizarParticipantes();
         });
         HBox linha = new HBox(documento, adicionar, remover);
@@ -161,7 +158,7 @@ public class TelaCheckIn extends Pagina {
     }
 
     private void atualizarParticipantes() {
-        participantes.getItems().setAll(controlador.getParticipantes().stream()
+        participantes.getItems().setAll(controlador.getAtendimento().getHospedes().stream()
                 .map(h -> h.cpfOuPassaporte() + " · " + h.nome()).toList());
         quartos.getItems().clear();
         resumo.setText("");
@@ -180,25 +177,22 @@ public class TelaCheckIn extends Pagina {
                 + " a " + Campos.texto(r.getPeriodo().saida()) + " · " + r.getQuantidadeHospedes() + " hóspede(s)";
     }
 
-    private String descreverSemReserva(Hospede h) {
-        TipoQuarto t = controlador.getTipo();
+    private static String descreverSemReserva(Atendimento a) {
+        TipoQuarto t = a.getTipo();
+        Hospede h = a.getResponsavel();
         return "Sem reserva\nResponsável: " + h.nome() + " · " + h.cpfOuPassaporte() + "\nTipo: " + t
                 + " · capacidade " + t.capacidadeMaxima() + " · diária " + Campos.moeda(t.valorDiaria())
-                + "\nPeríodo: " + Campos.texto(controlador.getPeriodo().entrada()) + " a "
-                + Campos.texto(controlador.getPeriodo().saida());
+                + "\nPeríodo: " + Campos.texto(a.getPeriodo().entrada()) + " a " + Campos.texto(a.getPeriodo().saida());
     }
 
-    private static String descrever(ControladorCheckIn.Resumo r) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(r.reserva() == null ? "Check-in sem reserva" : "Reserva " + r.reserva().getCodigo()).append('\n');
-        sb.append("Responsável: ").append(r.responsavel().nome()).append('\n');
-        sb.append("Hóspedes: ").append(String.join("; ", r.hospedes().stream().map(Hospede::nome).toList()));
-        sb.append("\nQuarto: ").append(r.quarto().getNumero()).append(" (andar ").append(r.quarto().getAndar())
-                .append(", ").append(r.quarto().getTipo()).append(")\n");
-        sb.append("Período previsto: ").append(Campos.texto(r.periodo().entrada())).append(" a ")
-                .append(Campos.texto(r.periodo().saida())).append('\n');
-        sb.append("Diária: ").append(Campos.moeda(r.quarto().getTipo().valorDiaria()));
-        return sb.toString();
+    private static String descrever(Atendimento a) {
+        Quarto q = a.getQuarto();
+        return (a.getReserva() == null ? "Check-in sem reserva" : "Reserva " + a.getReserva().getCodigo())
+                + "\nResponsável: " + a.getResponsavel().nome()
+                + "\nHóspedes: " + String.join("; ", a.getHospedes().stream().map(Hospede::nome).toList())
+                + "\nQuarto: " + q.getNumero() + " (andar " + q.getAndar() + ", " + q.getTipo() + ")"
+                + "\nPeríodo previsto: " + Campos.texto(a.getPeriodo().entrada()) + " a " + Campos.texto(a.getPeriodo().saida())
+                + "\nDiária: " + Campos.moeda(q.getTipo().valorDiaria());
     }
 
     private static String descrever(Hospedagem h) {

@@ -3,6 +3,7 @@ package hospedabem.dao;
 import hospedabem.model.Periodo;
 import hospedabem.model.Reserva;
 import hospedabem.model.SituacaoReserva;
+import hospedabem.model.SolicitacaoReserva;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -46,16 +47,15 @@ public class ReservaDAO {
         return jdbc.query(SELECT + " FOR UPDATE OF r", MAPA, codigo).stream().findFirst();
     }
 
-    /** Insere a reserva confirmada e devolve o código gerado pela sequência do banco. */
-    public int inserir(int responsavelId, int tipoId, Periodo periodo, int quantidade, int funcionarioId) {
+    public int inserir(SolicitacaoReserva s, int funcionarioId) {
         return jdbc.queryForObject("""
                 INSERT INTO reserva (hospede_responsavel_id, tipo_quarto_id, data_entrada_prevista, data_saida_prevista,
                                      quantidade_hospedes, situacao, funcionario_id)
                 VALUES (?, ?, ?, ?, ?, 'CONFIRMADA', ?) RETURNING codigo""",
-                Integer.class, responsavelId, tipoId, periodo.entrada(), periodo.saida(), quantidade, funcionarioId);
+                Integer.class, s.responsavel().id(), s.tipo().id(), s.periodo().entrada(), s.periodo().saida(),
+                s.quantidadeHospedes(), funcionarioId);
     }
 
-    /** Persiste a situação e incrementa a versão usada para detectar alterações concorrentes. */
     public void atualizar(Reserva r) {
         jdbc.update("UPDATE reserva SET situacao = ?, versao = versao + 1 WHERE id = ?", r.getSituacao().name(), r.getId());
     }

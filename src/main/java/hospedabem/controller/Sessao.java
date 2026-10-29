@@ -6,7 +6,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 
-/** Funcionário autenticado nesta instância do desktop (um usuário por processo). */
 @Component
 public class Sessao {
     private volatile Funcionario funcionario;
@@ -23,7 +22,6 @@ public class Sessao {
         funcionario = null;
     }
 
-    /** Verificação feita no controlador, independente do que a tela habilita (RF-2 a RF-7, RNF-10). */
     public Funcionario exigir(Perfil... permitidos) {
         Funcionario f = funcionario;
         if (f == null) throw new AcessoNegadoException("Acesso não autorizado: faça login.");
