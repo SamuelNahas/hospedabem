@@ -19,26 +19,27 @@ Ficam para as próximas iterações: cadastro de hóspedes (UC06) e de funcioná
 
 ## Tecnologia e organização (MVC)
 
-Java 17+, Swing, Spring Boot 3.4 **sem servidor web** (`spring.main.web-application-type=none`), Spring JDBC (`JdbcTemplate`, HikariCP, `@Transactional`), PostgreSQL, Maven e JUnit 5.
+Java 17+, **JavaFX 21 com CSS**, Spring Boot 3.4 **sem servidor web** (`spring.main.web-application-type=none`), Spring JDBC (`JdbcTemplate`, HikariCP, `@Transactional`), PostgreSQL, Maven e JUnit 5.
 
 O Spring Boot é usado como contêiner de injeção de dependências e gerenciador de transações. A aplicação continua desktop, como exigem os documentos.
 
 ```
 src/main/java/hospedabem/
-├── App.java            ponto de entrada (Spring Boot + Swing)
+├── App.java            ponto de entrada (Spring Boot + JavaFX)
 ├── model/              Model: entidades e regras (Quarto.ocupar, Reserva.converter, Hospedagem, Periodo, Ocupacao...)
 ├── dao/                persistência JDBC (QuartoDAO, ReservaDAO, HospedagemDAO, ...)
 ├── controller/         Controller: permissões, coordenação e transações (ControladorCheckIn, ...)
-└── view/               View: telas Swing (TelaLogin, TelaCheckIn, ...), sem SQL e sem regra de negócio
+└── view/               View: telas JavaFX (TelaLogin, TelaPrincipal, TelaCheckIn, ...), sem SQL e sem regra de negócio
 src/main/resources/
 ├── application.properties
+├── hospedabem/view/estilo.css   tema visual (CSS do JavaFX)
 └── db/schema.sql, db/seed.sql
 src/test/java/hospedabem/   testes unitários (*Test) e de integração no PostgreSQL (*IT)
 ```
 
 Os nomes seguem o DC e o DCP: `TelaCheckIn`, `ControladorCheckIn.confirmarCheckIn()`, `QuartoDAO.buscarPorNumero/atualizar`, `HospedagemDAO.salvar`, `ReservaDAO.atualizar`, `Hospedagem.adicionarHospede/setQuarto`, `Quarto.ocupar()`, `Reserva.converter(Hospedagem)` e `ContaDaHospedagem`.
 
-As telas chamam os controladores fora da thread de eventos do Swing (`view/Tarefa.java`, com `SwingWorker`). Os controladores verificam o perfil da sessão em toda operação. Assim, uma chamada direta sem permissão também é recusada.
+A interface é uma janela única, com barra lateral de navegação, páginas em cartões e avisos de erro e sucesso no topo da página. O tema fica em `estilo.css`. As telas chamam os controladores fora da thread do JavaFX (`view/Tarefa.java`, com `javafx.concurrent.Task`). Os controladores verificam o perfil da sessão em toda operação. Assim, uma chamada direta sem permissão também é recusada.
 
 ## Preparação
 
@@ -50,11 +51,11 @@ As telas chamam os controladores fora da thread de eventos do Swing (`view/Taref
 | Maven | 3.9 ou superior | `mvn -v` |
 | PostgreSQL | 12 ou superior, ou Docker | `psql --version` ou `docker --version` |
 
-O que foi encontrado nesta máquina (macOS, 29/10/2026): o `java` do sistema não encontrava runtime, mas havia um OpenJDK 27 do Homebrew fora do `PATH`. Maven e PostgreSQL não estavam instalados. A configuração usada foi:
+O que foi encontrado nesta máquina (macOS, 29/10/2026): o `java` do sistema não encontrava runtime, mas havia um OpenJDK 27 do Homebrew fora do `PATH`. Maven e PostgreSQL não estavam instalados. A configuração usada, com a qual tudo foi verificado, foi:
 
 ```bash
-brew install maven                                  # Maven 3.10
-export JAVA_HOME=/opt/homebrew/opt/openjdk          # JDK do Homebrew (ou: brew install openjdk@17)
+brew install maven openjdk@17                       # Maven 3.10 e OpenJDK 17.0.21
+export JAVA_HOME=/opt/homebrew/opt/openjdk@17
 export PATH="$JAVA_HOME/bin:$PATH"
 docker compose up -d                                # PostgreSQL 17 com os bancos hospedabem e hospedabem_test
 ```
@@ -110,29 +111,46 @@ Hóspedes fictícios da carga: `11111111111` (Carlos), `22222222222` (Beatriz), 
 
 ## Testes
 
+Há quatro níveis de teste. Todos rodam com `mvn test`, exceto a mutação, que tem comando próprio.
+
+| Nível | Arquivos | O que cobre | Banco |
+|---|---|---|---|
+| Unitário | `*Test` (27 testes) | Regras puras: `Periodo`, `Ocupacao.pico`, entidades, `Reserva.mesmoEstadoDe`, `Sessao`, hash de senha, mensagens de erro, conversão de campos | não usa |
+| Integração | `*IT` (52 testes) | Controladores + DAOs + PostgreSQL: regras dos 6 UCs, transação do check-in, falha injetada na gravação, concorrência entre conexões, reinício | `hospedabem_test` |
+| Ponta a ponta (E2E) | `TelasE2E` (5 testes) | Telas JavaFX reais operadas como um usuário (`RoboFx`): login, permissões, cadastros, disponibilidade, reserva, check-in com e sem reserva. Confere a tela e o banco. | `hospedabem_test` |
+| Mutação | PIT (`pitest-maven`) | Altera o código de `model` e `controller` e verifica se algum teste falha | `hospedabem_test` |
+
 ```bash
-mvn test                      # 52 testes: unitários + integração no PostgreSQL (banco hospedabem_test)
+mvn test                      # unitários + integração + E2E (84 testes)
 mvn test -Dtest='*Test'       # somente unitários, sem banco
+mvn test -Dtest='TelasE2E' -Dhb.e2e.capturas=docs/telas   # E2E salvando a captura de cada passo
+mvn test-compile org.pitest:pitest-maven:mutationCoverage  # mutação; relatório em target/pit-reports/index.html
 ```
 
-Os testes de integração recriam o esquema **somente do banco de teste**. Antes disso, verificam se o nome do banco termina em `_test` e se recusam a rodar em outro banco. O banco de uso não é tocado.
+Os testes de integração e E2E recriam o esquema **somente do banco de teste**. Antes disso, verificam se o nome do banco termina em `_test` e se recusam a rodar em outro banco. O banco de uso não é tocado.
 
-### Resultado verificado em 29/10/2026
+Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem monitor, use `xvfb-run mvn test`. A mutação roda numa única thread, porque os testes compartilham o banco de teste.
 
-- `mvn test`: **52 testes, 0 falhas, 0 erros** (OpenJDK 27 com `--release 17`, PostgreSQL 17 em Docker).
-- Teste de mutação: ao remover o bloqueio do tipo em `ControladorReserva`, `ConcorrenciaIT` falhou (duas reservas na última vaga). O código foi restaurado em seguida.
-- Demonstração das telas reais: a aplicação foi executada com `java -jar` e criou o banco. Um roteiro em Java abriu as telas Swing reais e acionou os botões. Ele percorreu login, permissões, tipos, quartos, disponibilidade, reserva e check-in com e sem reserva. As mensagens e o estado final do banco estão em [docs/demonstracao.md](docs/demonstracao.md). Essa execução encontrou um erro real (`NullPointerException` ao abrir a tela de check-in), corrigido em `view/Tarefa.java`.
+### Resultado verificado em 29/10/2026 (OpenJDK 17.0.21, PostgreSQL 17)
+
+- `mvn package`: **84 testes, 0 falhas, 0 erros** (27 unitários, 52 de integração, 5 E2E).
+- Mutação (PIT 1.17.4): **211 mutantes, 205 mortos (97%)**, nenhum sem cobertura, força de teste de 97%. O build exige no mínimo 95% (`mutationThreshold`). Os 6 sobreviventes são equivalentes ou inobserváveis em teste:
+  - 4 remoções de `TipoQuartoDAO.bloquear` nos cadastros de tipo e quarto. O bloqueio só faz diferença com transações concorrentes, e um teste para isso dependeria de corrida de threads, ou seja, seria instável. O bloqueio equivalente da reserva é verificado por `ConcorrenciaIT`.
+  - `PBEKeySpec.clearPassword()`: limpeza de memória, sem efeito observável.
+  - `SET LOCAL statement_timeout = 3000` da consulta de disponibilidade: só se manifesta com uma consulta lenta.
+- A primeira rodada do PIT (80%) revelou lacunas reais, cobertas depois por testes: etapas do check-in fora de ordem, manutenção do quarto após o resumo com folga no tipo, reserva ou quarto apagados antes da confirmação, capacidade exatamente no limite e senha não apagada da memória. Revelou também duas pré-checagens de duplicidade redundantes com a restrição `UNIQUE` do banco, que foram removidas.
+- Os E2E encontraram um problema de interface: o item do menu e o botão da página de reserva tinham o mesmo texto. O botão passou a se chamar "Confirmar reserva". Capturas e mensagens estão em [docs/demonstracao.md](docs/demonstracao.md).
 
 ## Verificação: casos de uso × telas × testes
 
 | UC | Tela | Controlador | Testes |
 |---|---|---|---|
-| UC01 | `TelaLogin`, `TelaPrincipal` (botões de admin desabilitados) | `ControladorAutenticacao`, `Sessao` | `AutenticacaoIT` (login correto, senha incorreta, matrícula inexistente, chamadas diretas sem sessão e sem perfil, hash PBKDF2), `SenhaTest` |
-| UC03 | `TelaTipoQuarto` | `ControladorTipoQuarto` | `CadastroIT`: inclusão/busca/alteração/exclusão, código duplicado, valores inválidos, exclusão com quarto ou reserva, redução de capacidade abaixo de reserva |
-| UC04 | `TelaQuarto` | `ControladorQuarto` | `CadastroIT`: número duplicado, tipo inexistente, ocupado/reservado pelo cadastro, RN-Q04 (hospedagem ativa), RN-Q05 (manutenção/troca de tipo/exclusão inviabilizando reserva, com dados preservados), RN-Q06 (histórico) |
-| UC07 | `TelaDisponibilidade` | `ControladorDisponibilidade`, `ServicoDisponibilidade` | `OcupacaoTest` (período inválido, sobreposição, adjacência, reservas que não se sobrepõem entre si); `DisponibilidadeIT` (manutenção, convertida não contada duas vezes, cancelada, hospedagem atrasada) |
-| UC08 | `TelaReserva` | `ControladorReserva` | `ReservaIT` (válida com funcionário da sessão, capacidade, indisponibilidade, responsável/tipo/período inválidos); `ConcorrenciaIT` (última vaga) |
-| UC10 | `TelaCheckIn` (4 etapas + confirmação) | `ControladorCheckIn` | `CheckInIT` (pós-condições do contrato, sem reserva, reserva inexistente/convertida/cancelada/futura, hóspede inexistente/duplicado/excesso, responsável ausente, sem quarto, reserva alterada ou cancelada após o resumo, quarto ocupado ou em manutenção após o resumo, falha na gravação sem resultado parcial, unicidade no banco); `ConcorrenciaIT` (mesmo quarto, check-in × reserva); `PersistenciaIT` (reinício) |
+| UC01 | `TelaLogin`, `TelaPrincipal` (itens de cadastro desabilitados para a recepcionista) | `ControladorAutenticacao`, `Sessao` | `AutenticacaoIT` (login correto, senha incorreta, matrícula inexistente, chamadas diretas sem sessão e sem perfil, hash PBKDF2, senha apagada da memória), `SenhaTest`, `SessaoTest`, `TelasE2E` |
+| UC03 | `TelaTipoQuarto` | `ControladorTipoQuarto` | `TelasE2E`, `DominioTest`, `CadastroIT`: inclusão/busca/alteração/exclusão, código duplicado, valores inválidos, exclusão com quarto ou reserva, redução de capacidade abaixo de reserva |
+| UC04 | `TelaQuarto` | `ControladorQuarto` | `TelasE2E`, `DominioTest`, `CadastroIT`: número duplicado, tipo inexistente, ocupado/reservado pelo cadastro, RN-Q04 (hospedagem ativa), RN-Q05 (manutenção/troca de tipo/exclusão inviabilizando reserva, com dados preservados), RN-Q06 (histórico) |
+| UC07 | `TelaDisponibilidade` | `ControladorDisponibilidade`, `ServicoDisponibilidade` | `TelasE2E`, `OcupacaoTest` (período inválido, sobreposição, adjacência, reservas que não se sobrepõem entre si); `DisponibilidadeIT` (manutenção, convertida não contada duas vezes, cancelada, hospedagem atrasada) |
+| UC08 | `TelaReserva` | `ControladorReserva` | `TelasE2E`, `ReservaIT` (válida com funcionário da sessão, capacidade, indisponibilidade, responsável/tipo/período inválidos); `ConcorrenciaIT` (última vaga) |
+| UC10 | `TelaCheckIn` (4 etapas em cartões, a última com a confirmação) | `ControladorCheckIn` | `TelasE2E` (com e sem reserva, pela tela); `DominioTest`; `CheckInIT` (etapas fora de ordem, reserva ou quarto apagados, pós-condições do contrato, sem reserva, reserva inexistente/convertida/cancelada/futura, hóspede inexistente/duplicado/excesso, responsável ausente, sem quarto, reserva alterada ou cancelada após o resumo, quarto ocupado ou em manutenção após o resumo, falha na gravação sem resultado parcial, unicidade no banco); `ConcorrenciaIT` (mesmo quarto, check-in × reserva); `PersistenciaIT` (reinício) |
 
 ## Decisões de implementação e divergências dos artefatos
 
@@ -153,7 +171,8 @@ Os testes de integração recriam o esquema **somente do banco de teste**. Antes
 15. **Hóspede não cadastrado:** como o UC06 é da iteração 2, a mensagem informa o impedimento. Use os hóspedes da carga inicial.
 16. **Senhas:** PBKDF2-HMAC-SHA256 com 210.000 iterações e *salt* de 16 bytes. Os documentos dizem "criptografadas", mas o hash não é reversível de propósito. O login gasta o mesmo tempo para matrícula existente ou inexistente.
 17. **Códigos** de reserva (a partir de 1001) e de hospedagem (a partir de 5001) vêm de sequências do banco. O código do tipo de quarto é texto (por exemplo, `STD`), e não `int` como no DCP.
-18. **Arquivo Astah (`GrupoN.asta`)** não foi aberto (formato nativo). Os diagramas foram consultados nas exportações `GrupoN_DC.jpg` e `GrupoN_DCP.jpg`.
+18. **JavaFX pelo classpath:** o JAR único (Spring Boot) carrega o JavaFX do classpath. Por isso, `App` não estende `Application` e delega a `view/AplicacaoFx`. O aviso `Unsupported JavaFX configuration` no log é esperado e não afeta o funcionamento.
+19. **Arquivo Astah (`GrupoN.asta`)** não foi aberto (formato nativo). Os diagramas foram consultados nas exportações `GrupoN_DC.jpg` e `GrupoN_DCP.jpg`.
 
 ## Transações, concorrência e falhas
 
@@ -185,15 +204,14 @@ Os testes de integração recriam o esquema **somente do banco de teste**. Antes
 | RNF-9 | Configuração de rede local documentada. Depende do `pg_hba.conf` e do *firewall*. |
 | RNF-10 | Atendido: perfis verificados no controlador e testados. |
 | RNF-11 | Camadas MVC e DAOs por entidade. |
-| RNF-12 | O check-in ocupa 1 janela com 4 etapas e a confirmação, dentro do limite de 5. |
-| RNF-13 | Java/Swing e PostgreSQL são multiplataforma. **Executado apenas no macOS.** |
+| RNF-12 | O check-in ocupa uma página com 4 etapas; a confirmação fica na última. Dentro do limite de 5. |
+| RNF-13 | Java, JavaFX e PostgreSQL são multiplataforma. O Maven baixa os componentes nativos do JavaFX do sistema em que o build é feito: gere o JAR em cada sistema operacional de destino. **Executado apenas no macOS.** |
 | RNF-14 | PostgreSQL. MySQL não foi implementado: o SQL usa `RETURNING`, índice parcial e `FOR UPDATE OF`, específicos do PostgreSQL. |
 
 ## Pendências reais
 
 - UC06 (hóspedes) e o gerenciamento de funcionários: nesta iteração existem apenas o modelo, as consultas e a carga fictícia.
 - RNF-8: troca periódica de senha.
-- Execução validada em JDK 27 com `--release 17`. Não houve execução em um JDK 17 real.
 - Vídeo da entrega: precisa ser gravado com a execução real. Siga [docs/roteiro-demonstracao.md](docs/roteiro-demonstracao.md).
 
 ## Entrega em ZIP

@@ -126,4 +126,23 @@ class CadastroIT extends IntegracaoBase {
         quartos.alterar(new Quarto(q.getId(), 909, 9, t, SituacaoQuarto.MANUTENCAO));
         assertEquals("MANUTENCAO", situacaoQuarto(909));
     }
+
+    @Test
+    void capacidadeIgualAoExigidoPelaReservaEhPermitida() {
+        TipoQuarto lux = tipos.buscar("LUX").orElseThrow(); // reserva 1001 com 2 hóspedes
+        tipos.alterar(new TipoQuarto(lux.id(), "LUX", "Luxo", 2, lux.valorDiaria()));
+        assertEquals(2, tipos.buscar("LUX").orElseThrow().capacidadeMaxima());
+    }
+
+    @Test
+    void alteracaoComTipoInexistenteOuQuartoInexistenteEhRecusada() {
+        TipoQuarto t = criarTipo("J", 2);
+        Quarto q = criarQuarto(911, t);
+        TipoQuarto fantasma = new TipoQuarto(99999, "J", "x", 1, BigDecimal.ONE); // código existe, id não
+        assertThrows(NegocioException.class,
+                () -> quartos.alterar(new Quarto(q.getId(), 911, 9, fantasma, SituacaoQuarto.DISPONIVEL)));
+        Quarto inexistente = new Quarto(99999, 912, 9, t, SituacaoQuarto.DISPONIVEL);
+        assertThrows(NegocioException.class, () -> quartos.alterar(inexistente));
+        assertThrows(NegocioException.class, () -> quartos.excluir(inexistente));
+    }
 }

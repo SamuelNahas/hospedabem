@@ -1,0 +1,286 @@
+/* HospedaBem - tema da interface JavaFX */
+
+.root {
+    -fx-font-size: 13px;
+    -cor-primaria: #2563eb;
+    -cor-primaria-escura: #1d4ed8;
+    -cor-fundo: #f1f5f9;
+    -cor-borda: #e2e8f0;
+    -cor-texto: #0f172a;
+    -cor-texto-suave: #64748b;
+    -fx-background-color: -cor-fundo;
+    -fx-text-fill: -cor-texto;
+}
+
+/* ---------- Login ---------- */
+.fundo-login {
+    -fx-background-color: linear-gradient(to bottom right, #1e3a8a, #2563eb 55%, #38bdf8);
+}
+.cartao-login {
+    -fx-padding: 32;
+    -fx-spacing: 14;
+}
+.marca-login {
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -cor-primaria;
+}
+
+/* ---------- Estrutura ---------- */
+.barra-lateral {
+    -fx-background-color: #0f172a;
+    -fx-padding: 20 14 18 14;
+    -fx-spacing: 4;
+    -fx-pref-width: 230;
+}
+.marca {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-text-fill: white;
+    -fx-padding: 0 8 14 8;
+}
+.secao-navegacao {
+    -fx-text-fill: #64748b;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-padding: 14 10 4 10;
+}
+.item-navegacao {
+    -fx-background-color: transparent;
+    -fx-text-fill: #cbd5e1;
+    -fx-alignment: center-left;
+    -fx-padding: 9 12;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+}
+.item-navegacao:hover {
+    -fx-background-color: #1e293b;
+    -fx-text-fill: white;
+}
+.item-navegacao.ativo {
+    -fx-background-color: -cor-primaria;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+.item-navegacao:disabled {
+    -fx-opacity: 0.35;
+}
+.usuario {
+    -fx-text-fill: #cbd5e1;
+    -fx-font-size: 12px;
+    -fx-padding: 10 8;
+}
+.botao-sair {
+    -fx-background-color: #1e293b;
+    -fx-text-fill: #e2e8f0;
+    -fx-background-radius: 8;
+    -fx-padding: 8 12;
+    -fx-cursor: hand;
+}
+.botao-sair:hover {
+    -fx-background-color: #334155;
+}
+.conteudo, .conteudo > .viewport {
+    -fx-background-color: -cor-fundo;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+/* ---------- Página e cartões ---------- */
+.pagina {
+    -fx-padding: 28 32 32 32;
+    -fx-spacing: 16;
+}
+.titulo-pagina {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -cor-texto;
+}
+.subtitulo-pagina {
+    -fx-text-fill: -cor-texto-suave;
+}
+.cartao {
+    -fx-background-color: white;
+    -fx-background-radius: 12;
+    -fx-border-color: -cor-borda;
+    -fx-border-radius: 12;
+    -fx-padding: 18 20;
+    -fx-spacing: 12;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.06), 12, 0, 0, 2);
+}
+.titulo-cartao {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -cor-texto;
+}
+.formulario {
+    -fx-hgap: 14;
+    -fx-vgap: 10;
+}
+.rotulo {
+    -fx-text-fill: #334155;
+}
+.acoes, .linha, .segmentos {
+    -fx-spacing: 8;
+    -fx-alignment: center-left;
+}
+.dica {
+    -fx-text-fill: -cor-texto-suave;
+    -fx-font-size: 12px;
+}
+.destaque {
+    -fx-text-fill: -cor-texto;
+    -fx-font-weight: bold;
+}
+.resumo {
+    -fx-background-color: #f8fafc;
+    -fx-background-radius: 8;
+    -fx-border-color: -cor-borda;
+    -fx-border-radius: 8;
+    -fx-padding: 12 14;
+    -fx-min-height: 60;
+}
+
+/* ---------- Avisos ---------- */
+.aviso {
+    -fx-padding: 10 14;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-font-weight: bold;
+}
+.aviso-erro {
+    -fx-background-color: #fef2f2;
+    -fx-border-color: #fecaca;
+    -fx-text-fill: #b91c1c;
+}
+.aviso-sucesso {
+    -fx-background-color: #f0fdf4;
+    -fx-border-color: #bbf7d0;
+    -fx-text-fill: #15803d;
+}
+
+/* ---------- Controles ---------- */
+.text-field, .combo-box, .date-picker, .list-view, .table-view {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-border-color: #cbd5e1;
+    -fx-border-radius: 8;
+}
+.text-field {
+    -fx-padding: 7 10;
+}
+.text-field:focused, .combo-box:focused, .date-picker:focused {
+    -fx-border-color: -cor-primaria;
+    -fx-border-width: 1.5;
+}
+.date-picker > .text-field {
+    -fx-border-color: transparent;
+}
+.button {
+    -fx-background-radius: 8;
+    -fx-padding: 8 16;
+    -fx-cursor: hand;
+}
+.botao-primario {
+    -fx-background-color: -cor-primaria;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+.botao-primario:hover {
+    -fx-background-color: -cor-primaria-escura;
+}
+.botao-secundario {
+    -fx-background-color: white;
+    -fx-text-fill: #1e293b;
+    -fx-border-color: #cbd5e1;
+    -fx-border-radius: 8;
+}
+.botao-secundario:hover {
+    -fx-background-color: #f8fafc;
+}
+.botao-perigo {
+    -fx-background-color: white;
+    -fx-text-fill: #b91c1c;
+    -fx-border-color: #fecaca;
+    -fx-border-radius: 8;
+}
+.botao-perigo:hover {
+    -fx-background-color: #fef2f2;
+}
+.button:disabled {
+    -fx-opacity: 0.5;
+}
+.segmento {
+    -fx-background-color: #e2e8f0;
+    -fx-text-fill: #334155;
+    -fx-background-radius: 8;
+    -fx-padding: 7 16;
+    -fx-cursor: hand;
+}
+.segmento:selected {
+    -fx-background-color: -cor-primaria;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+/* ---------- Tabelas e listas ---------- */
+.table-view .column-header-background {
+    -fx-background-color: #f8fafc;
+    -fx-background-radius: 8 8 0 0;
+}
+.table-view .column-header, .table-view .filler {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent transparent -cor-borda transparent;
+    -fx-padding: 6 4;
+}
+.table-view .column-header .label {
+    -fx-text-fill: -cor-texto-suave;
+    -fx-font-weight: bold;
+    -fx-alignment: center-left;
+}
+.table-row-cell {
+    -fx-background-color: white;
+    -fx-border-color: transparent transparent #f1f5f9 transparent;
+    -fx-cell-size: 34;
+}
+.table-row-cell:hover {
+    -fx-background-color: #f8fafc;
+}
+.table-row-cell:selected, .list-cell:selected {
+    -fx-background-color: #dbeafe;
+}
+.table-row-cell:selected .text, .list-cell:selected .text {
+    -fx-fill: #1e3a8a;
+}
+.table-cell {
+    -fx-padding: 0 8;
+    -fx-border-color: transparent;
+}
+.list-cell {
+    -fx-padding: 8 10;
+    -fx-background-color: white;
+}
+.scroll-bar {
+    -fx-background-color: transparent;
+}
+.scroll-bar .thumb {
+    -fx-background-color: #cbd5e1;
+    -fx-background-radius: 6;
+}
+
+/* ---------- Combos e calendário ---------- */
+.combo-box > .list-cell, .combo-box > .list-cell:selected {
+    -fx-background-color: transparent;
+    -fx-text-fill: -cor-texto;
+    -fx-padding: 6 10;
+}
+.combo-box > .arrow-button, .date-picker > .arrow-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0 10;
+}
+.combo-box > .arrow-button > .arrow, .date-picker > .arrow-button > .arrow {
+    -fx-background-color: -cor-texto-suave;
+}
+.combo-box-popup > .list-view {
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.15), 14, 0, 0, 4);
+}

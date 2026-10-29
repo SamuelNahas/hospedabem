@@ -6,129 +6,109 @@ import hospedabem.model.NegocioException;
 import hospedabem.model.Quarto;
 import hospedabem.model.SituacaoQuarto;
 import hospedabem.model.TipoQuarto;
-
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JDialog;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.JTextField;
-import javax.swing.table.DefaultTableModel;
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.util.ArrayList;
-import java.util.List;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
 
 /** UC04 Gerenciar Quarto. */
-public class TelaQuarto extends JDialog {
+public class TelaQuarto extends Pagina {
     private final ControladorQuarto controlador;
-    private final DefaultTableModel modelo = Campos.modeloSomenteLeitura("Número", "Andar", "Tipo", "Situação");
-    private final JTable tabela = Campos.tabela(modelo);
-    private final JTextField numero = new JTextField(6);
-    private final JTextField andar = new JTextField(4);
-    private final JComboBox<TipoQuarto> tipo = new JComboBox<>();
-    private final JComboBox<SituacaoQuarto> situacao = new JComboBox<>(SituacaoQuarto.values());
-    private List<Quarto> quartos = new ArrayList<>();
+    private final TableView<Quarto> tabela = Campos.tabela(
+            Campos.coluna("Número", Quarto::getNumero),
+            Campos.coluna("Andar", Quarto::getAndar),
+            Campos.coluna("Tipo", Quarto::getTipo),
+            Campos.coluna("Situação", Quarto::getSituacao));
+    private final TextField numero = new TextField();
+    private final TextField andar = new TextField();
+    private final ComboBox<TipoQuarto> tipo = new ComboBox<>();
+    private final ComboBox<SituacaoQuarto> situacao = new ComboBox<>();
+    private final Button salvar = Campos.botao("Salvar", "botao-primario");
     private Quarto selecionado;
 
-    public TelaQuarto(JFrame dono, ControladorQuarto controlador, ControladorDisponibilidade consultas) {
-        super(dono, "Quartos", true);
+    public TelaQuarto(ControladorQuarto controlador, ControladorDisponibilidade consultas) {
+        super("Quartos", "Ocupado resulta do check-in. As reservas são por tipo: o quarto físico só é escolhido "
+                + "no check-in, por isso \"reservado\" aparece na consulta de disponibilidade.");
         this.controlador = controlador;
+        situacao.getItems().setAll(SituacaoQuarto.values());
+        situacao.setValue(SituacaoQuarto.DISPONIVEL);
+        tipo.setMaxWidth(Double.MAX_VALUE);
+        situacao.setMaxWidth(Double.MAX_VALUE);
 
-        JButton novo = new JButton("Novo");
-        JButton salvar = new JButton("Salvar");
-        JButton excluir = new JButton("Excluir");
-        novo.addActionListener(e -> selecionar(null));
-        salvar.addActionListener(e -> salvar(salvar));
-        excluir.addActionListener(e -> excluir(excluir));
-        tabela.getSelectionModel().addListSelectionListener(e -> {
-            int linha = tabela.getSelectedRow();
-            if (!e.getValueIsAdjusting() && linha >= 0) selecionar(quartos.get(linha));
+        Button novo = Campos.botao("Novo", "botao-secundario");
+        Button excluir = Campos.botao("Excluir", "botao-perigo");
+        novo.setOnAction(e -> selecionar(null));
+        salvar.setOnAction(e -> salvar());
+        excluir.setOnAction(e -> excluir(excluir));
+        tabela.getSelectionModel().selectedItemProperty().addListener((obs, antes, q) -> {
+            if (q != null) selecionar(q);
         });
 
-        JPanel acoes = new JPanel();
-        for (JButton b : new JButton[]{novo, salvar, excluir}) acoes.add(b);
-        JPanel sul = new JPanel(new BorderLayout());
-        sul.add(Campos.formulario("Número", numero, "Andar", andar, "Tipo", tipo, "Situação", situacao),
-                BorderLayout.CENTER);
-        sul.add(new JLabel("<html><small>Ocupado resulta do check-in. Reservas são por tipo: o quarto físico só é "
-                + "definido no check-in, por isso \"reservado\" aparece na consulta de disponibilidade.</small></html>"),
-                BorderLayout.NORTH);
-        sul.add(acoes, BorderLayout.SOUTH);
-        JPanel painel = new JPanel(new BorderLayout(6, 6));
-        painel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-        JScrollPane rolagem = new JScrollPane(tabela);
-        rolagem.setPreferredSize(new Dimension(520, 220));
-        painel.add(rolagem, BorderLayout.CENTER);
-        painel.add(sul, BorderLayout.SOUTH);
-        setContentPane(painel);
-        pack();
-        setLocationRelativeTo(dono);
-        Tarefa.executar(novo, consultas::listarTipos, lista -> lista.forEach(tipo::addItem));
-        recarregar(novo);
+        Label dica = new Label("O cadastro só define Disponível ou Manutenção.");
+        dica.getStyleClass().add("dica");
+        getChildren().addAll(
+                Campos.cartao("Quartos cadastrados", tabela),
+                Campos.cartao("Dados do quarto",
+                        Campos.formulario("Número", numero, "Andar", andar, "Tipo", tipo, "Situação", situacao),
+                        dica, Campos.acoes(salvar, novo, excluir)));
+        Tarefa.executar(novo, aviso, consultas::listarTipos, lista -> tipo.getItems().setAll(lista));
+        recarregar();
     }
 
-    private void recarregar(JButton origem) {
-        Tarefa.executar(origem, controlador::listar, lista -> {
-            quartos = lista;
-            modelo.setRowCount(0);
-            for (Quarto q : lista) modelo.addRow(new Object[]{q.getNumero(), q.getAndar(), q.getTipo(), q.getSituacao()});
-        });
+    private void recarregar() {
+        Tarefa.executar(salvar, aviso, controlador::listar, lista -> tabela.getItems().setAll(lista));
     }
 
     private void selecionar(Quarto q) {
         selecionado = q;
         numero.setText(q == null ? "" : String.valueOf(q.getNumero()));
         andar.setText(q == null ? "" : String.valueOf(q.getAndar()));
-        situacao.setSelectedItem(q == null ? SituacaoQuarto.DISPONIVEL : q.getSituacao());
-        if (q != null) {
-            for (int i = 0; i < tipo.getItemCount(); i++)
-                if (tipo.getItemAt(i).id() == q.getTipo().id()) tipo.setSelectedIndex(i);
-        } else {
-            tabela.clearSelection();
-        }
+        situacao.setValue(q == null ? SituacaoQuarto.DISPONIVEL : q.getSituacao());
+        tipo.setValue(q == null ? null
+                : tipo.getItems().stream().filter(t -> t.id() == q.getTipo().id()).findFirst().orElse(null));
+        if (q == null) tabela.getSelectionModel().clearSelection();
     }
 
-    private void salvar(JButton origem) {
+    private void salvar() {
         Quarto q;
         try {
-            q = new Quarto(selecionado == null ? 0 : selecionado.getId(), Campos.inteiro(numero, "Número"),
-                    Campos.inteiro(andar, "Andar"), (TipoQuarto) tipo.getSelectedItem(),
-                    (SituacaoQuarto) situacao.getSelectedItem());
+            q = new Quarto(selecionado == null ? 0 : selecionado.getId(), Campos.inteiro(numero.getText(), "Número"),
+                    Campos.inteiro(andar.getText(), "Andar"), tipo.getValue(), situacao.getValue());
         } catch (NegocioException e) {
-            Tarefa.erro(origem, e.getMessage());
+            aviso.erro(e.getMessage());
             return;
         }
-        Tarefa.executar(origem, () -> {
-            if (selecionado == null) controlador.incluir(q);
+        boolean inclusao = selecionado == null;
+        Tarefa.executar(salvar, aviso, () -> {
+            if (inclusao) controlador.incluir(q);
             else controlador.alterar(q);
             return q;
         }, ok -> {
-            Tarefa.info(origem, "Quarto " + q.getNumero() + " gravado.");
             selecionar(null);
-            recarregar(origem);
+            recarregar();
+            aviso.sucesso("Quarto " + q.getNumero() + " gravado.");
         });
     }
 
-    private void excluir(JButton origem) {
+    private void excluir(Button origem) {
         if (selecionado == null) {
-            Tarefa.erro(origem, "Selecione um quarto na lista.");
+            aviso.erro("Selecione um quarto na lista.");
             return;
         }
         Quarto alvo = selecionado;
-        if (JOptionPane.showConfirmDialog(this, "Excluir o quarto " + alvo.getNumero() + "?", "Confirmar",
-                JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) return;
-        Tarefa.executar(origem, () -> {
+        Alert confirmacao = new Alert(Alert.AlertType.CONFIRMATION, "Excluir o quarto " + alvo.getNumero() + "?",
+                ButtonType.YES, ButtonType.NO);
+        if (confirmacao.showAndWait().orElse(ButtonType.NO) != ButtonType.YES) return;
+        Tarefa.executar(origem, aviso, () -> {
             controlador.excluir(alvo);
             return alvo;
         }, ok -> {
             selecionar(null);
-            recarregar(origem);
+            recarregar();
+            aviso.sucesso("Quarto " + alvo.getNumero() + " excluído.");
         });
     }
 }

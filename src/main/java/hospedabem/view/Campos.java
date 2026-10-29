@@ -1,17 +1,19 @@
 package hospedabem.view;
 
 import hospedabem.model.NegocioException;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.scene.Node;
+import javafx.scene.control.Button;
+import javafx.scene.control.DatePicker;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
 
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JTable;
-import javax.swing.JTextField;
-import javax.swing.ListSelectionModel;
-import javax.swing.table.DefaultTableModel;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDate;
@@ -19,8 +21,10 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.util.Locale;
+import java.util.function.Function;
+import javafx.util.StringConverter;
 
-/** Leitura e formatação dos campos das telas. */
+/** Leitura de campos e blocos visuais reutilizados pelas telas. */
 public final class Campos {
     public static final DateTimeFormatter DATA = DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
     public static final DateTimeFormatter DATA_HORA = DateTimeFormatter.ofPattern("dd/MM/uuuu HH:mm");
@@ -29,29 +33,56 @@ public final class Campos {
     private Campos() {
     }
 
-    public static LocalDate data(JTextField campo, String nome) {
+    public static LocalDate data(String texto, String nome) {
         try {
-            return LocalDate.parse(campo.getText().trim(), DATA);
+            return LocalDate.parse(texto.trim(), DATA);
         } catch (DateTimeParseException e) {
             throw new NegocioException(nome + " inválida. Use o formato dd/mm/aaaa.");
         }
     }
 
-    public static int inteiro(JTextField campo, String nome) {
+    public static int inteiro(String texto, String nome) {
         try {
-            return Integer.parseInt(campo.getText().trim());
+            return Integer.parseInt(texto.trim());
         } catch (NumberFormatException e) {
             throw new NegocioException(nome + " deve ser um número inteiro.");
         }
     }
 
-    public static BigDecimal decimal(JTextField campo, String nome) {
+    public static BigDecimal decimal(String texto, String nome) {
         try {
-            String t = campo.getText().trim();
+            String t = texto.trim();
             return new BigDecimal(t.contains(",") ? t.replace(".", "").replace(',', '.') : t);
         } catch (NumberFormatException e) {
             throw new NegocioException(nome + " inválido. Exemplo: 180,00");
         }
+    }
+
+    /** Seletor de data em dd/mm/aaaa; leia o texto do editor com {@link #textoData} e converta com {@link #data}. */
+    public static DatePicker seletorData(LocalDate inicial) {
+        DatePicker d = new DatePicker(inicial);
+        d.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(LocalDate data) {
+                return texto(data);
+            }
+
+            @Override
+            public LocalDate fromString(String texto) {
+                try {
+                    return texto == null || texto.isBlank() ? null : LocalDate.parse(texto.trim(), DATA);
+                } catch (DateTimeParseException e) {
+                    return null;
+                }
+            }
+        });
+        d.setMaxWidth(Double.MAX_VALUE);
+        return d;
+    }
+
+    /** Texto digitado ou escolhido no calendário, lido na thread do JavaFX. */
+    public static String textoData(DatePicker d) {
+        return d.getEditor().getText();
     }
 
     public static String texto(LocalDate d) {
@@ -66,43 +97,58 @@ public final class Campos {
         return v.toPlainString().replace('.', ',');
     }
 
-    /** Formulário de duas colunas: rótulo, componente, rótulo, componente... */
-    public static JPanel formulario(Object... rotulosEComponentes) {
-        JPanel painel = new JPanel(new GridBagLayout());
-        GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(3, 4, 3, 4);
-        c.anchor = GridBagConstraints.WEST;
-        for (int i = 0; i < rotulosEComponentes.length; i += 2) {
-            c.gridy = i / 2;
-            c.gridx = 0;
-            c.fill = GridBagConstraints.NONE;
-            c.weightx = 0;
-            String texto = rotulosEComponentes[i].toString();
-            JLabel rotulo = new JLabel(texto.isEmpty() ? "" : texto + ":");
-            JComponent campo = (JComponent) rotulosEComponentes[i + 1];
+    /** Formulário de duas colunas: rótulo, campo, rótulo, campo... O rótulo fica associado ao campo. */
+    public static GridPane formulario(Object... rotulosECampos) {
+        GridPane grade = new GridPane();
+        grade.getStyleClass().add("formulario");
+        ColumnConstraints rotulos = new ColumnConstraints();
+        ColumnConstraints campos = new ColumnConstraints();
+        campos.setHgrow(Priority.ALWAYS);
+        grade.getColumnConstraints().addAll(rotulos, campos);
+        for (int i = 0; i < rotulosECampos.length; i += 2) {
+            Label rotulo = new Label(rotulosECampos[i].toString());
+            rotulo.getStyleClass().add("rotulo");
+            Node campo = (Node) rotulosECampos[i + 1];
             rotulo.setLabelFor(campo);
-            painel.add(rotulo, c);
-            c.gridx = 1;
-            c.fill = GridBagConstraints.HORIZONTAL;
-            c.weightx = 1;
-            painel.add(campo, c);
+            grade.addRow(i / 2, rotulo, campo);
         }
-        return painel;
+        return grade;
     }
 
-    public static DefaultTableModel modeloSomenteLeitura(String... colunas) {
-        return new DefaultTableModel(colunas, 0) {
-            @Override
-            public boolean isCellEditable(int linha, int coluna) {
-                return false;
-            }
-        };
+    public static VBox cartao(String titulo, Node... conteudo) {
+        Label cabecalho = new Label(titulo);
+        cabecalho.getStyleClass().add("titulo-cartao");
+        VBox cartao = new VBox(cabecalho);
+        cartao.getChildren().addAll(conteudo);
+        cartao.getStyleClass().add("cartao");
+        return cartao;
     }
 
-    public static JTable tabela(DefaultTableModel modelo) {
-        JTable t = new JTable(modelo);
-        t.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        t.setFillsViewportHeight(true);
+    public static HBox acoes(Node... botoes) {
+        HBox acoes = new HBox(botoes);
+        acoes.getStyleClass().add("acoes");
+        return acoes;
+    }
+
+    public static Button botao(String texto, String estilo) {
+        Button b = new Button(texto);
+        b.getStyleClass().add(estilo);
+        return b;
+    }
+
+    public static <T> TableColumn<T, Object> coluna(String titulo, Function<T, Object> valor) {
+        TableColumn<T, Object> c = new TableColumn<>(titulo);
+        c.setCellValueFactory(dados -> new SimpleObjectProperty<>(valor.apply(dados.getValue())));
+        return c;
+    }
+
+    @SafeVarargs
+    public static <T> TableView<T> tabela(TableColumn<T, Object>... colunas) {
+        TableView<T> t = new TableView<>();
+        t.getColumns().addAll(colunas);
+        t.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        t.setPlaceholder(new Label("Nenhum registro."));
+        t.setPrefHeight(220);
         return t;
     }
 }

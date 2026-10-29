@@ -1,47 +1,44 @@
 # Demonstração das telas reais (29/10/2026)
 
-## Como foi executada
+## Como é executada
 
-1. Aplicação empacotada e executada com `java -jar target/hospedabem.jar` contra o banco `hospedabem`, inicialmente vazio. O log registrou `Banco vazio: esquema e carga fictícia criados.`
-2. O macOS desta máquina nega ao terminal a permissão de gravação de tela e de acessibilidade. Por isso, não foi possível clicar nas janelas "de fora". As telas foram conduzidas por um roteiro Java que roda na mesma JVM da aplicação. Ele abre as telas Swing **reais** (`TelaLogin` → `TelaPrincipal` → ...), preenche os campos, aciona os botões com `doClick()` e renderiza cada janela em PNG. As regras, os controladores e o banco são os mesmos da aplicação normal.
-3. Essa execução encontrou um erro real: a tela de check-in acionava a carga dos tipos antes de estar dentro de uma janela (`NullPointerException` em `Tarefa`). O erro foi corrigido e a demonstração foi repetida do zero.
+As telas JavaFX reais são operadas pelos testes de ponta a ponta [`TelasE2E`](../src/test/java/hospedabem/view/TelasE2E.java), com o auxiliar [`RoboFx`](../src/test/java/hospedabem/view/RoboFx.java). O robô localiza campos pelo rótulo e botões pelo texto, aciona-os na thread do JavaFX e espera as tarefas de banco terminarem. Em seguida, cada teste confere a mensagem exibida e o estado do PostgreSQL de teste.
+
+```bash
+mvn test -Dtest=TelasE2E -Dhb.e2e.capturas=docs/telas
+```
+
+Para usar a aplicação de verdade: `java -jar target/hospedabem.jar`.
 
 **Limitação:** isso não substitui o vídeo com interação humana. Para gravá-lo, siga [roteiro-demonstracao.md](roteiro-demonstracao.md).
 
-## Mensagens exibidas pelo sistema
+## Mensagens conferidas pelos testes
 
-| Passo | Mensagem |
+| Cenário | Mensagem na tela |
 |---|---|
 | Login com senha errada | Matrícula ou senha inválida. |
+| Recepcionista | "Tipos de quarto" e "Quartos" desabilitados no menu |
 | Inclusão do tipo FAM | Tipo FAM gravado. |
 | Tipo com código STD repetido | Já existe tipo de quarto com o código STD. |
 | Inclusão do quarto 401 | Quarto 401 gravado. |
 | Quarto com situação OCUPADO pelo cadastro | Situação OCUPADO não pode ser definida pelo cadastro: ela resulta do check-in ou da reserva. Use DISPONIVEL ou MANUTENCAO. |
 | Disponibilidade com saída = entrada | Período inválido: a saída deve ser posterior à entrada. |
 | Reserva STD com 3 hóspedes | Quantidade de hóspedes (3) excede a capacidade do tipo STD (2). |
-| Reserva válida (administrador) | Reserva 1002 registrada. |
+| Reserva válida (recepcionista) | Reserva 1002 registrada · Beatriz Teste Souza · STD - Standard · ... · 2 hóspede(s) |
 | Check-in 1001: hóspede repetido | Hóspede já informado: Carlos Teste Silva. |
-| Check-in 1001: CPF inexistente | Hóspede não cadastrado: 99999999999. O cadastro de hóspedes (UC06) será entregue na iteração 2; regularize o cadastro e reinicie o check-in. |
-| Check-in 1001 confirmado | Check-in realizado com sucesso (hospedagem 5001, quarto 201, conta nº 1 ABERTA). |
+| Check-in 1001: CPF inexistente | Hóspede não cadastrado: 99999999999. O cadastro de hóspedes (UC06) será entregue na iteração 2; ... |
+| Check-in 1001 confirmado | Check-in realizado com sucesso. Hospedagem 5001 · quarto 201 ocupado · conta nº 1 aberta. |
+| Reiniciar o check-in da reserva 1001 | Reserva 1001 está convertida e não permite check-in. |
 | Check-in sem reserva: 3º hóspede em STD | Capacidade do quarto excedida: o tipo STD comporta 2 hóspede(s). |
-| Check-in sem reserva confirmado | Check-in realizado com sucesso (hospedagem 5002, quarto 101, conta nº 2 ABERTA). |
+| Check-in sem reserva confirmado | Check-in realizado com sucesso. Hospedagem 5001 · quarto 101 ... |
 
-## Estado do banco após a demonstração
-
-```
-{hospedagem=5001, quarto=201, situacao_quarto=OCUPADO, com_reserva=true,  conta=1, situacao_conta=ABERTA, valor_diaria=320.00, hospedes=2}
-{hospedagem=5002, quarto=101, situacao_quarto=OCUPADO, com_reserva=false, conta=2, situacao_conta=ABERTA, valor_diaria=180.00, hospedes=2}
-{codigo=1001, situacao=CONVERTIDA, quantidade_hospedes=2, funcionario_id=2}
-{codigo=1002, situacao=CONFIRMADA, quantidade_hospedes=2, funcionario_id=1}
-```
-
-A reserva 1001 foi registrada pela recepcionista na carga inicial (funcionário 2). A reserva 1002 foi registrada pelo administrador logado (funcionário 1).
+Depois de cada fluxo, os testes conferem no banco: o funcionário da sessão gravado na reserva, o quarto `OCUPADO`, a reserva `CONVERTIDA` (ou nenhuma reserva criada no caso sem reserva), a conta `ABERTA` e a quantidade de hóspedes da hospedagem.
 
 ## Capturas
 
-As capturas estão em [telas/](telas/), na ordem do roteiro. Por exemplo:
-
-- [03 - menu da recepcionista com cadastros desabilitados](telas/03-menu-recepcionista-cadastros-desabilitados.png)
-- [11 - disponibilidade](telas/11-disponibilidade-hoje-a-3-dias.png)
-- [18 - resumo do check-in com reserva](telas/18-checkin-com-reserva-resumo.png)
-- [19 - check-in confirmado com a conta aberta](telas/19-checkin-com-reserva-confirmado.png)
+| | |
+|---|---|
+| ![Login](telas/08-login-senha-incorreta.png) | ![Menu da recepcionista](telas/09-recepcionista-sem-cadastros.png) |
+| ![Tipos de quarto](telas/05-tipos-de-quarto.png) | ![Quartos](telas/06-quartos.png) |
+| ![Disponibilidade](telas/07-disponibilidade.png) | ![Reserva](telas/02-reserva-registrada.png) |
+| ![Resumo do check-in](telas/03-check-in-resumo.png) | ![Check-in confirmado](telas/04-check-in-confirmado.png) |

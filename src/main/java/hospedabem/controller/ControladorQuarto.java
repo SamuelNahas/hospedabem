@@ -43,7 +43,6 @@ public class ControladorQuarto {
         exigirSituacaoDeCadastro(q.getSituacao());
         exigirTipoExistente(q);
         tipoDAO.bloquear(List.of(q.getTipo().id()));
-        exigirNumeroLivre(q);
         try {
             return new Quarto(quartoDAO.inserir(q), q.getNumero(), q.getAndar(), q.getTipo(), q.getSituacao());
         } catch (DuplicateKeyException e) {
@@ -66,7 +65,6 @@ public class ControladorQuarto {
         } else {
             exigirSituacaoDeCadastro(novo.getSituacao());
         }
-        exigirNumeroLivre(novo);
         try {
             quartoDAO.atualizar(novo);
         } catch (DuplicateKeyException e) {
@@ -99,12 +97,7 @@ public class ControladorQuarto {
             throw new NegocioException("Tipo de quarto não cadastrado: " + q.getTipo().codigo());
     }
 
-    private void exigirNumeroLivre(Quarto q) {
-        quartoDAO.buscarPorNumero(q.getNumero()).filter(existente -> existente.getId() != q.getId()).ifPresent(e -> {
-            throw numeroDuplicado(q);
-        });
-    }
-
+    /** A unicidade do número é garantida pela restrição UNIQUE; aqui só se traduz a mensagem. */
     private static NegocioException numeroDuplicado(Quarto q) {
         return new NegocioException("Já existe quarto com o número " + q.getNumero() + ".");
     }

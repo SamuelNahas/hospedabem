@@ -7,6 +7,7 @@ import hospedabem.model.SituacaoReserva;
 import hospedabem.model.TipoQuarto;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -185,5 +186,94 @@ class CheckInIT extends IntegracaoBase {
                 INSERT INTO hospedagem (data_hora_entrada, data_saida_prevista, situacao, quarto_id, reserva_id, funcionario_id)
                 SELECT now(), CURRENT_DATE + 1, 'ATIVA', q.id, h.reserva_id, h.funcionario_id
                 FROM quarto q, hospedagem h WHERE q.numero = 202 AND h.id = ?""", h.getId()));
+    }
+
+    @Test
+    void etapasForaDeOrdemSaoRecusadasComMensagemClara() {
+        ControladorCheckIn c = checkIns.getObject();
+        assertEquals("Inicie o check-in com uma reserva ou sem reserva.",
+                assertThrows(NegocioException.class, () -> c.adicionarHospede(CARLOS)).getMessage());
+        assertEquals("Inicie o check-in com uma reserva ou sem reserva.",
+                assertThrows(NegocioException.class, c::consultarQuartosDisponiveis).getMessage());
+        c.iniciarCheckIn(RESERVA_CARGA);
+        assertEquals("Informe ao menos um hóspede.",
+                assertThrows(NegocioException.class, () -> c.selecionarQuarto(201)).getMessage());
+        assertEquals("Informe ao menos um hóspede.", assertThrows(NegocioException.class, c::confirmarCheckIn).getMessage());
+        c.adicionarHospede(CARLOS);
+        assertEquals("Selecione o quarto antes de confirmar.",
+                assertThrows(NegocioException.class, c::confirmarCheckIn).getMessage());
+        assertThrows(NegocioException.class, () -> c.selecionarQuarto(9999));
+    }
+
+    @Test
+    void metodosDoAtendimentoDevolvemOQueATelaApresenta() {
+        ControladorCheckIn c = checkIns.getObject();
+        assertEquals(RESERVA_CARGA, c.iniciarCheckIn(RESERVA_CARGA).getCodigo());
+        assertEquals(RESERVA_CARGA, c.getReserva().getCodigo());
+        assertEquals(CARLOS, c.getResponsavel().cpfOuPassaporte());
+        assertEquals("LUX", c.getTipo().codigo());
+        assertEquals(HOJE, c.getPeriodo().entrada());
+        assertEquals("Carlos Teste Silva", c.adicionarHospede(CARLOS).nome());
+        var resumo = c.selecionarQuarto(201);
+        assertEquals(201, resumo.quarto().getNumero());
+        assertEquals(1, resumo.hospedes().size());
+        assertEquals(BEATRIZ, c.iniciarCheckInSemReserva(BEATRIZ, "STD", HOJE, HOJE.plusDays(1)).cpfOuPassaporte());
+        assertEquals(BEATRIZ, c.getResponsavel().cpfOuPassaporte());
+        assertNull(c.getReserva());
+    }
+
+    @Test
+    void reiniciarOuConcluirLimpaOAtendimentoAnterior() {
+        ControladorCheckIn c = checkIns.getObject();
+        c.iniciarCheckIn(RESERVA_CARGA);
+        c.adicionarHospede(CARLOS);
+        c.adicionarHospede(BEATRIZ);
+        c.iniciarCheckIn(RESERVA_CARGA);
+        assertTrue(c.getParticipantes().isEmpty());
+        c.adicionarHospede(CARLOS);
+        c.iniciarCheckInSemReserva(CARLOS, "STD", HOJE, HOJE.plusDays(1));
+        assertTrue(c.getParticipantes().isEmpty());
+
+        c.adicionarHospede(CARLOS);
+        c.adicionarHospede(BEATRIZ);
+        c.removerHospede(c.getParticipantes().get(1));
+        assertEquals(List.of("Carlos Teste Silva"), c.getParticipantes().stream().map(h -> h.nome()).toList());
+        c.selecionarQuarto(101);
+        c.confirmarCheckIn();
+        assertEquals("Inicie o check-in com uma reserva ou sem reserva.",
+                assertThrows(NegocioException.class, c::confirmarCheckIn).getMessage());
+    }
+
+    @Test
+    void quartoEmManutencaoAposOResumoEhRecusadoMesmoComFolgaNoTipo() {
+        TipoQuarto t = criarTipo("FOLGA", 2);
+        criarQuarto(711, t);
+        criarQuarto(712, t);
+        ControladorCheckIn c = checkIns.getObject();
+        c.iniciarCheckInSemReserva(CARLOS, "FOLGA", HOJE, HOJE.plusDays(1));
+        c.adicionarHospede(CARLOS);
+        c.selecionarQuarto(711);
+        jdbc.update("UPDATE quarto SET situacao = 'MANUTENCAO' WHERE numero = 711");
+        assertThrows(NegocioException.class, c::confirmarCheckIn);
+        assertEquals(0, contar("SELECT COUNT(*) FROM hospedagem"));
+    }
+
+    @Test
+    void reservaOuQuartoApagadosAntesDaConfirmacaoSaoRecusados() {
+        ControladorCheckIn c = ateResumo(RESERVA_CARGA, 201, CARLOS);
+        jdbc.update("DELETE FROM reserva WHERE codigo = ?", RESERVA_CARGA);
+        assertEquals("A reserva foi removida por outra operação.",
+                assertThrows(NegocioException.class, c::confirmarCheckIn).getMessage());
+
+        TipoQuarto t = criarTipo("APAG", 2);
+        criarQuarto(721, t);
+        criarQuarto(722, t);
+        ControladorCheckIn semReserva = checkIns.getObject();
+        semReserva.iniciarCheckInSemReserva(CARLOS, "APAG", HOJE, HOJE.plusDays(1));
+        semReserva.adicionarHospede(CARLOS);
+        semReserva.selecionarQuarto(721);
+        jdbc.update("DELETE FROM quarto WHERE numero = 721");
+        assertTrue(assertThrows(NegocioException.class, semReserva::confirmarCheckIn).getMessage()
+                .startsWith("Quarto 721 indisponível"));
     }
 }

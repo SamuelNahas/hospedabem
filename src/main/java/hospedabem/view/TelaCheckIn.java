@@ -7,222 +7,192 @@ import hospedabem.model.Hospede;
 import hospedabem.model.Quarto;
 import hospedabem.model.Reserva;
 import hospedabem.model.TipoQuarto;
+import javafx.scene.Node;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.DatePicker;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 
-import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.ButtonGroup;
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JComponent;
-import javax.swing.JDialog;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JList;
-import javax.swing.JPanel;
-import javax.swing.JRadioButton;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.DefaultListModel;
-import javax.swing.table.DefaultTableModel;
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
- * UC10 Realizar Check-in numa única janela com quatro etapas e a confirmação final (RNF-12: até 5 etapas).
+ * UC10 Realizar Check-in numa única página com quatro etapas e a confirmação (RNF-12: até 5 etapas).
  * Cada botão corresponde a um evento do DSS.
  */
-public class TelaCheckIn extends JDialog {
+public class TelaCheckIn extends Pagina {
     private final ControladorCheckIn controlador;
-    private final JLabel dadosAtendimento = new JLabel(" ");
-    private final DefaultListModel<String> participantes = new DefaultListModel<>();
-    private final JList<String> listaParticipantes = new JList<>(participantes);
-    private final DefaultTableModel modeloQuartos = Campos.modeloSomenteLeitura("Número", "Andar", "Tipo", "Capacidade", "Diária");
-    private final JTable tabelaQuartos = Campos.tabela(modeloQuartos);
-    private final JTextArea resumo = new JTextArea(7, 50);
-    private List<Quarto> quartos = new ArrayList<>();
+    private final Label dadosAtendimento = new Label();
+    private final ListView<String> participantes = new ListView<>();
+    private final TableView<Quarto> quartos = Campos.tabela(
+            Campos.coluna("Número", Quarto::getNumero),
+            Campos.coluna("Andar", Quarto::getAndar),
+            Campos.coluna("Tipo", Quarto::getTipo),
+            Campos.coluna("Capacidade", q -> q.getTipo().capacidadeMaxima()),
+            Campos.coluna("Diária", q -> Campos.moeda(q.getTipo().valorDiaria())));
+    private final Label resumo = new Label();
 
-    public TelaCheckIn(JFrame dono, ControladorCheckIn controlador, ControladorDisponibilidade consultas) {
-        super(dono, "Realizar check-in", true);
+    public TelaCheckIn(ControladorCheckIn controlador, ControladorDisponibilidade consultas) {
+        super("Check-in", "Registra a entrada dos hóspedes, ocupa o quarto e abre a conta da hospedagem.");
         this.controlador = controlador;
-        resumo.setEditable(false);
-
-        JPanel painel = new JPanel();
-        painel.setLayout(new BoxLayout(painel, BoxLayout.Y_AXIS));
-        painel.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-        painel.add(etapaInicio(consultas));
-        painel.add(etapaParticipantes());
-        painel.add(etapaQuarto());
-        painel.add(etapaConfirmacao());
-        setContentPane(new JScrollPane(painel));
-        pack();
-        setLocationRelativeTo(dono);
+        dadosAtendimento.getStyleClass().add("destaque");
+        dadosAtendimento.setWrapText(true);
+        resumo.getStyleClass().add("resumo");
+        resumo.setWrapText(true);
+        resumo.setMaxWidth(Double.MAX_VALUE);
+        participantes.setPrefHeight(110);
+        quartos.setPrefHeight(170);
+        getChildren().addAll(etapaInicio(consultas), etapaParticipantes(), etapaQuarto(), etapaConfirmacao());
     }
 
-    private JComponent etapaInicio(ControladorDisponibilidade consultas) {
-        JRadioButton comReserva = new JRadioButton("Com reserva", true);
-        JRadioButton semReserva = new JRadioButton("Sem reserva");
-        ButtonGroup grupo = new ButtonGroup();
-        grupo.add(comReserva);
-        grupo.add(semReserva);
-        JTextField codigo = new JTextField(8);
-        JTextField cpf = new JTextField(14);
-        JComboBox<TipoQuarto> tipo = new JComboBox<>();
-        JTextField entrada = new JTextField(Campos.texto(LocalDate.now()), 10);
-        JTextField saida = new JTextField(Campos.texto(LocalDate.now().plusDays(1)), 10);
-        JButton iniciar = new JButton("Iniciar check-in");
-
-        iniciar.addActionListener(e -> {
-            limparEtapas();
-            if (comReserva.isSelected()) {
-                Tarefa.executar(iniciar, () -> controlador.iniciarCheckIn(Campos.inteiro(codigo, "Código da reserva")),
-                        r -> dadosAtendimento.setText(descrever(r)));
-            } else {
-                TipoQuarto t = (TipoQuarto) tipo.getSelectedItem();
-                Tarefa.executar(iniciar, () -> controlador.iniciarCheckInSemReserva(cpf.getText(),
-                        t == null ? null : t.codigo(), Campos.data(entrada, "Data de entrada"),
-                        Campos.data(saida, "Data de saída")), h -> dadosAtendimento.setText(descreverSemReserva(h)));
-            }
+    private Node etapaInicio(ControladorDisponibilidade consultas) {
+        ToggleGroup modo = new ToggleGroup();
+        ToggleButton comReserva = new ToggleButton("Com reserva");
+        ToggleButton semReserva = new ToggleButton("Sem reserva");
+        comReserva.setToggleGroup(modo);
+        semReserva.setToggleGroup(modo);
+        comReserva.setSelected(true);
+        comReserva.getStyleClass().add("segmento");
+        semReserva.getStyleClass().add("segmento");
+        modo.selectedToggleProperty().addListener((obs, antes, agora) -> {
+            if (agora == null) antes.setSelected(true);
         });
 
-        JPanel modos = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        modos.add(comReserva);
-        modos.add(semReserva);
-        JPanel etapa = new JPanel(new BorderLayout());
-        etapa.setBorder(BorderFactory.createTitledBorder("1. Reserva ou dados do atendimento sem reserva"));
-        etapa.add(modos, BorderLayout.NORTH);
-        etapa.add(Campos.formulario("Código da reserva", codigo, "Sem reserva - CPF/passaporte do responsável", cpf,
-                "Sem reserva - tipo de quarto", tipo, "Sem reserva - entrada (hoje)", entrada,
-                "Sem reserva - saída prevista", saida), BorderLayout.CENTER);
-        JPanel sul = new JPanel(new BorderLayout());
-        sul.add(iniciar, BorderLayout.NORTH);
-        sul.add(dadosAtendimento, BorderLayout.CENTER);
-        etapa.add(sul, BorderLayout.SOUTH);
-        Tarefa.executar(iniciar, consultas::listarTipos, lista -> lista.forEach(tipo::addItem));
-        return etapa;
+        TextField codigo = new TextField();
+        codigo.setPromptText("ex.: 1001");
+        TextField cpf = new TextField();
+        cpf.setPromptText("CPF ou passaporte");
+        ComboBox<TipoQuarto> tipo = new ComboBox<>();
+        tipo.setMaxWidth(Double.MAX_VALUE);
+        DatePicker entrada = Campos.seletorData(LocalDate.now());
+        DatePicker saida = Campos.seletorData(LocalDate.now().plusDays(1));
+        GridPane formComReserva = Campos.formulario("Código da reserva", codigo);
+        GridPane formSemReserva = Campos.formulario("CPF/passaporte do responsável", cpf, "Tipo de quarto", tipo,
+                "Entrada (hoje)", entrada, "Saída prevista", saida);
+        formSemReserva.visibleProperty().bind(semReserva.selectedProperty());
+        formSemReserva.managedProperty().bind(semReserva.selectedProperty());
+        formComReserva.visibleProperty().bind(comReserva.selectedProperty());
+        formComReserva.managedProperty().bind(comReserva.selectedProperty());
+
+        Button iniciar = Campos.botao("Iniciar check-in", "botao-primario");
+        iniciar.setOnAction(e -> {
+            limparEtapas();
+            if (comReserva.isSelected()) {
+                String c = codigo.getText();
+                Tarefa.executar(iniciar, aviso, () -> controlador.iniciarCheckIn(Campos.inteiro(c, "Código da reserva")),
+                        r -> dadosAtendimento.setText(descrever(r)));
+            } else {
+                String doc = cpf.getText();
+                String de = Campos.textoData(entrada);
+                String ate = Campos.textoData(saida);
+                String codTipo = tipo.getValue() == null ? null : tipo.getValue().codigo();
+                Tarefa.executar(iniciar, aviso, () -> controlador.iniciarCheckInSemReserva(doc, codTipo,
+                                Campos.data(de, "Data de entrada"), Campos.data(ate, "Data de saída")),
+                        h -> dadosAtendimento.setText(descreverSemReserva(h)));
+            }
+        });
+        Tarefa.executar(iniciar, aviso, consultas::listarTipos, lista -> {
+            tipo.getItems().setAll(lista);
+            if (!lista.isEmpty()) tipo.setValue(lista.get(0));
+        });
+        HBox segmentos = new HBox(comReserva, semReserva);
+        segmentos.getStyleClass().add("segmentos");
+        return Campos.cartao("1 · Reserva ou atendimento sem reserva", segmentos, formComReserva, formSemReserva,
+                Campos.acoes(iniciar), dadosAtendimento);
     }
 
-    private JComponent etapaParticipantes() {
-        JTextField documento = new JTextField(14);
-        JButton adicionar = new JButton("Adicionar hóspede");
-        JButton remover = new JButton("Remover selecionado");
-        adicionar.addActionListener(e -> Tarefa.executar(adicionar, () -> controlador.adicionarHospede(documento.getText()),
-                h -> {
-                    documento.setText("");
-                    atualizarParticipantes();
-                }));
-        remover.addActionListener(e -> {
-            int i = listaParticipantes.getSelectedIndex();
+    private Node etapaParticipantes() {
+        TextField documento = new TextField();
+        documento.setPromptText("CPF ou passaporte do hóspede");
+        Button adicionar = Campos.botao("Adicionar hóspede", "botao-primario");
+        Button remover = Campos.botao("Remover selecionado", "botao-secundario");
+        adicionar.setOnAction(e -> {
+            String doc = documento.getText();
+            Tarefa.executar(adicionar, aviso, () -> controlador.adicionarHospede(doc), h -> {
+                documento.clear();
+                atualizarParticipantes();
+            });
+        });
+        remover.setOnAction(e -> {
+            int i = participantes.getSelectionModel().getSelectedIndex();
             if (i >= 0) controlador.removerHospede(controlador.getParticipantes().get(i));
             atualizarParticipantes();
         });
-
-        JPanel linha = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        linha.add(new JLabel("CPF/passaporte:"));
-        linha.add(documento);
-        linha.add(adicionar);
-        linha.add(remover);
-        JScrollPane rolagem = new JScrollPane(listaParticipantes);
-        rolagem.setPreferredSize(new Dimension(500, 80));
-        JPanel etapa = new JPanel(new BorderLayout());
-        etapa.setBorder(BorderFactory.createTitledBorder("2. Hóspedes da estadia (inclua o responsável)"));
-        etapa.add(linha, BorderLayout.NORTH);
-        etapa.add(rolagem, BorderLayout.CENTER);
-        return etapa;
+        HBox linha = new HBox(documento, adicionar, remover);
+        linha.getStyleClass().add("linha");
+        HBox.setHgrow(documento, Priority.ALWAYS);
+        return Campos.cartao("2 · Hóspedes da estadia (inclua o responsável)", linha, participantes);
     }
 
-    private JComponent etapaQuarto() {
-        JButton consultar = new JButton("Consultar quartos disponíveis");
-        JButton selecionar = new JButton("Selecionar quarto");
-        consultar.addActionListener(e -> Tarefa.executar(consultar, controlador::consultarQuartosDisponiveis, lista -> {
-            quartos = lista;
-            modeloQuartos.setRowCount(0);
-            for (Quarto q : lista)
-                modeloQuartos.addRow(new Object[]{q.getNumero(), q.getAndar(), q.getTipo(),
-                        q.getTipo().capacidadeMaxima(), Campos.moeda(q.getTipo().valorDiaria())});
-        }));
-        selecionar.addActionListener(e -> {
-            int linha = tabelaQuartos.getSelectedRow();
-            if (linha < 0) {
-                Tarefa.erro(selecionar, "Selecione um quarto na lista.");
+    private Node etapaQuarto() {
+        Button consultar = Campos.botao("Consultar quartos disponíveis", "botao-primario");
+        Button selecionar = Campos.botao("Selecionar quarto", "botao-secundario");
+        consultar.setOnAction(e -> Tarefa.executar(consultar, aviso, controlador::consultarQuartosDisponiveis,
+                lista -> quartos.getItems().setAll(lista)));
+        selecionar.setOnAction(e -> {
+            Quarto q = quartos.getSelectionModel().getSelectedItem();
+            if (q == null) {
+                aviso.erro("Selecione um quarto na lista.");
                 return;
             }
-            int numero = quartos.get(linha).getNumero();
-            Tarefa.executar(selecionar, () -> controlador.selecionarQuarto(numero), r -> resumo.setText(descrever(r)));
+            Tarefa.executar(selecionar, aviso, () -> controlador.selecionarQuarto(q.getNumero()),
+                    r -> resumo.setText(descrever(r)));
         });
-
-        JPanel botoes = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        botoes.add(consultar);
-        botoes.add(selecionar);
-        JScrollPane rolagem = new JScrollPane(tabelaQuartos);
-        rolagem.setPreferredSize(new Dimension(500, 100));
-        JPanel etapa = new JPanel(new BorderLayout());
-        etapa.setBorder(BorderFactory.createTitledBorder("3. Quarto"));
-        etapa.add(botoes, BorderLayout.NORTH);
-        etapa.add(rolagem, BorderLayout.CENTER);
-        return etapa;
+        return Campos.cartao("3 · Quarto", Campos.acoes(consultar, selecionar), quartos);
     }
 
-    private JComponent etapaConfirmacao() {
-        JButton confirmar = new JButton("Confirmar check-in");
-        confirmar.addActionListener(e -> Tarefa.executar(confirmar, controlador::confirmarCheckIn, h -> {
-            String texto = descrever(h);
+    private Node etapaConfirmacao() {
+        Button confirmar = Campos.botao("Confirmar check-in", "botao-primario");
+        confirmar.setOnAction(e -> Tarefa.executar(confirmar, aviso, controlador::confirmarCheckIn, h -> {
             limparEtapas();
-            dadosAtendimento.setText(" ");
-            resumo.setText(texto);
-            Tarefa.info(confirmar, texto);
+            dadosAtendimento.setText("");
+            resumo.setText(descrever(h));
+            aviso.sucesso("Check-in realizado com sucesso. Hospedagem " + h.getCodigo() + " · quarto "
+                    + h.getQuarto().getNumero() + " ocupado · conta nº " + h.getConta().getId() + " aberta.");
         }));
-        JPanel etapa = new JPanel(new BorderLayout());
-        etapa.setBorder(BorderFactory.createTitledBorder("4. Resumo e confirmação"));
-        etapa.add(new JScrollPane(resumo), BorderLayout.CENTER);
-        JPanel sul = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        sul.add(Box.createHorizontalGlue());
-        sul.add(confirmar);
-        etapa.add(sul, BorderLayout.SOUTH);
-        return etapa;
+        return Campos.cartao("4 · Resumo e confirmação", resumo, Campos.acoes(confirmar));
     }
 
     private void atualizarParticipantes() {
-        participantes.clear();
-        for (Hospede h : controlador.getParticipantes()) participantes.addElement(h.cpfOuPassaporte() + " - " + h.nome());
-        modeloQuartos.setRowCount(0);
+        participantes.getItems().setAll(controlador.getParticipantes().stream()
+                .map(h -> h.cpfOuPassaporte() + " · " + h.nome()).toList());
+        quartos.getItems().clear();
         resumo.setText("");
     }
 
     private void limparEtapas() {
-        participantes.clear();
-        modeloQuartos.setRowCount(0);
-        quartos = new ArrayList<>();
+        participantes.getItems().clear();
+        quartos.getItems().clear();
         resumo.setText("");
     }
 
     private static String descrever(Reserva r) {
-        return "<html>Reserva " + r.getCodigo() + " (" + r.getSituacao() + ")<br>Responsável: " + r.getResponsavel().nome()
-                + " - " + r.getResponsavel().cpfOuPassaporte() + "<br>Tipo: " + r.getTipo() + " - capacidade "
-                + r.getTipo().capacidadeMaxima() + "<br>Período previsto: " + Campos.texto(r.getPeriodo().entrada())
-                + " a " + Campos.texto(r.getPeriodo().saida()) + " - hóspedes: " + r.getQuantidadeHospedes() + "</html>";
+        return "Reserva " + r.getCodigo() + " (" + r.getSituacao() + ")\nResponsável: " + r.getResponsavel().nome()
+                + " · " + r.getResponsavel().cpfOuPassaporte() + "\nTipo: " + r.getTipo() + " · capacidade "
+                + r.getTipo().capacidadeMaxima() + "\nPeríodo previsto: " + Campos.texto(r.getPeriodo().entrada())
+                + " a " + Campos.texto(r.getPeriodo().saida()) + " · " + r.getQuantidadeHospedes() + " hóspede(s)";
     }
 
     private String descreverSemReserva(Hospede h) {
         TipoQuarto t = controlador.getTipo();
-        return "<html>Sem reserva<br>Responsável: " + h.nome() + " - " + h.cpfOuPassaporte() + "<br>Tipo: " + t
-                + " - capacidade " + t.capacidadeMaxima() + " - diária " + Campos.moeda(t.valorDiaria())
-                + "<br>Período: " + Campos.texto(controlador.getPeriodo().entrada()) + " a "
-                + Campos.texto(controlador.getPeriodo().saida()) + "</html>";
+        return "Sem reserva\nResponsável: " + h.nome() + " · " + h.cpfOuPassaporte() + "\nTipo: " + t
+                + " · capacidade " + t.capacidadeMaxima() + " · diária " + Campos.moeda(t.valorDiaria())
+                + "\nPeríodo: " + Campos.texto(controlador.getPeriodo().entrada()) + " a "
+                + Campos.texto(controlador.getPeriodo().saida());
     }
 
     private static String descrever(ControladorCheckIn.Resumo r) {
         StringBuilder sb = new StringBuilder();
         sb.append(r.reserva() == null ? "Check-in sem reserva" : "Reserva " + r.reserva().getCodigo()).append('\n');
         sb.append("Responsável: ").append(r.responsavel().nome()).append('\n');
-        sb.append("Hóspedes: ");
-        r.hospedes().forEach(h -> sb.append(h.nome()).append("; "));
+        sb.append("Hóspedes: ").append(String.join("; ", r.hospedes().stream().map(Hospede::nome).toList()));
         sb.append("\nQuarto: ").append(r.quarto().getNumero()).append(" (andar ").append(r.quarto().getAndar())
                 .append(", ").append(r.quarto().getTipo()).append(")\n");
         sb.append("Período previsto: ").append(Campos.texto(r.periodo().entrada())).append(" a ")
@@ -232,8 +202,7 @@ public class TelaCheckIn extends JDialog {
     }
 
     private static String descrever(Hospedagem h) {
-        return "Check-in realizado com sucesso.\nHospedagem: " + h.getCodigo()
-                + "\nEntrada: " + Campos.DATA_HORA.format(h.getDataHoraEntrada())
+        return "Hospedagem " + h.getCodigo() + "\nEntrada: " + Campos.DATA_HORA.format(h.getDataHoraEntrada())
                 + "\nSaída prevista: " + Campos.texto(h.getDataSaidaPrevista())
                 + "\nQuarto ocupado: " + h.getQuarto().getNumero()
                 + "\nConta aberta: nº " + h.getConta().getId() + " (" + h.getConta().getSituacao() + ")";

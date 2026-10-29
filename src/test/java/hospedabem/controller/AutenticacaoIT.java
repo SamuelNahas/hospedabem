@@ -59,4 +59,17 @@ class AutenticacaoIT extends IntegracaoBase {
         logarComo("recep01");
         assertTrue(disponibilidade.consultar(HOJE, HOJE.plusDays(1), null).size() >= 3);
     }
+
+    @Test
+    void senhaEhApagadaDaMemoriaAposALogin() {
+        char[] senha = "Admin@123".toCharArray();
+        autenticacao.autenticar("admin01", senha);
+        assertEquals("\0".repeat(9), new String(senha));
+    }
+
+    @Test
+    void funcionarioAutenticadoListaOsTipos() {
+        logarComo("recep01");
+        assertEquals(3, disponibilidade.listarTipos().size());
+    }
 }

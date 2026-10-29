@@ -21,7 +21,7 @@ Este ZIP contém só a pasta `src/`. O projeto completo, com `pom.xml`, `README.
 - Ponto de entrada: `src/main/java/hospedabem/App.java` (classe `hospedabem.App`).
 - SQL de criação e carga fictícia: `src/main/resources/db/schema.sql` e `src/main/resources/db/seed.sql`. A aplicação os executa sozinha na primeira vez, se o banco estiver vazio.
 - Configuração: `src/main/resources/application.properties`. Credenciais por variável de ambiente: `HB_DB_URL`, `HB_DB_USER` e `HB_DB_PASSWORD`. Testes: `HB_TEST_DB_URL`, `HB_TEST_DB_USER` e `HB_TEST_DB_PASSWORD`.
-- Testes: `src/test/java`. Os de integração (`*IT`) usam o banco `hospedabem_test` e recriam o esquema dele.
+- Testes: `src/test/java`. Unitários (`*Test`) não usam banco. Os de integração (`*IT`) e os de ponta a ponta (`TelasE2E`) usam o banco `hospedabem_test` e recriam o esquema dele.
 
 ## Reconstruir o build
 
@@ -29,7 +29,7 @@ Este ZIP contém só a pasta `src/`. O projeto completo, com `pom.xml`, `README.
 2. Rode:
 
 ```bash
-mvn test                        # testes (exige o banco hospedabem_test)
+mvn test                        # 84 testes: unitários, integração e E2E (exige o banco hospedabem_test)
 mvn package -DskipTests         # gera target/hospedabem.jar
 java -jar target/hospedabem.jar # executa a aplicação desktop
 ```
@@ -38,7 +38,9 @@ Credenciais fictícias de demonstração: `admin01` / `Admin@123` (administrador
 
 ### pom.xml
 
-Dependências: Spring Boot 3.4.1 (`spring-boot-starter-jdbc`, sem servidor web), driver `org.postgresql:postgresql` (versão gerenciada pelo Spring Boot) e `spring-boot-starter-test` (JUnit 5) para os testes.
+Dependências: Spring Boot 3.4.1 (`spring-boot-starter-jdbc`, sem servidor web), JavaFX 21.0.5 (`org.openjfx:javafx-controls`; o Maven baixa os nativos do sistema em que o build é feito), driver `org.postgresql:postgresql` (versão gerenciada pelo Spring Boot), `spring-boot-starter-test` (JUnit 5) e o PIT 1.17.4 para os testes de mutação (`mvn test-compile org.pitest:pitest-maven:mutationCoverage`).
+
+Os testes E2E (`TelasE2E`) abrem janelas JavaFX: rode-os numa sessão gráfica (em Linux sem monitor, `xvfb-run mvn test`).
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -65,10 +67,16 @@ Dependências: Spring Boot 3.4.1 (`spring-boot-starter-jdbc`, sem servidor web),
   </properties>
 
   <dependencies>
-    <!-- Sem starter web: aplicação desktop Swing. JDBC traz JdbcTemplate, HikariCP e @Transactional. -->
+    <!-- Sem starter web: aplicação desktop JavaFX. JDBC traz JdbcTemplate, HikariCP e @Transactional. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-jdbc</artifactId>
+    </dependency>
+    <!-- Interface desktop: JavaFX (LTS 21, compatível com Java 17). O Maven baixa os nativos da plataforma do build. -->
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-controls</artifactId>
+      <version>21.0.5</version>
     </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>
@@ -78,6 +86,12 @@ Dependências: Spring Boot 3.4.1 (`spring-boot-starter-jdbc`, sem servidor web),
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Exigido pelo plugin JUnit 5 do PIT (testes de mutação). -->
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-launcher</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -91,12 +105,53 @@ Dependências: Spring Boot 3.4.1 (`spring-boot-starter-jdbc`, sem servidor web),
           <includes>
             <include>**/*Test.java</include>
             <include>**/*IT.java</include>
+            <include>**/*E2E.java</include>
           </includes>
         </configuration>
       </plugin>
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <!-- Testes de mutação: mvn test-compile org.pitest:pitest-maven:mutationCoverage -->
+      <plugin>
+        <groupId>org.pitest</groupId>
+        <artifactId>pitest-maven</artifactId>
+        <version>1.17.4</version>
+        <dependencies>
+          <dependency>
+            <groupId>org.pitest</groupId>
+            <artifactId>pitest-junit5-plugin</artifactId>
+            <version>1.2.1</version>
+          </dependency>
+        </dependencies>
+        <configuration>
+          <!-- Regras de negócio e coordenação; telas são cobertas pelos testes E2E. -->
+          <targetClasses>
+            <param>hospedabem.model.*</param>
+            <param>hospedabem.controller.*</param>
+          </targetClasses>
+          <targetTests>
+            <param>hospedabem.*</param>
+          </targetTests>
+          <!-- Utilitário de linha de comando para gerar hashes da carga inicial. -->
+          <excludedMethods>
+            <param>main</param>
+          </excludedMethods>
+          <excludedTestClasses>
+            <param>hospedabem.view.*E2E</param>
+          </excludedTestClasses>
+          <!-- Os testes de integração recriam o mesmo banco de teste: uma thread evita interferência. -->
+          <threads>1</threads>
+          <timeoutConstant>15000</timeoutConstant>
+          <!-- Medido: 97%. Os sobreviventes são equivalentes documentados no README. -->
+          <mutationThreshold>95</mutationThreshold>
+          <outputFormats>
+            <param>HTML</param>
+            <param>XML</param>
+          </outputFormats>
+          <timestampedReports>false</timestampedReports>
+        </configuration>
       </plugin>
     </plugins>
   </build>
