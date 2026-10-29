@@ -8,7 +8,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Optional;
 
-/** Somente consulta: o gerenciamento de hóspedes (UC06) é da iteração 2. */
 @Repository
 public class HospedeDAO {
     private final JdbcTemplate jdbc;
@@ -22,7 +21,6 @@ public class HospedeDAO {
                 normalizar(cpfOuPassaporte)).stream().findFirst();
     }
 
-    /** CPF é gravado só com dígitos; passaporte, em maiúsculas e sem separadores. */
     public static String normalizar(String documento) {
         return documento == null ? "" : documento.replaceAll("[\\s.\\-/]", "").toUpperCase();
     }

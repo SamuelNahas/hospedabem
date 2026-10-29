@@ -2,7 +2,6 @@ package hospedabem.view;
 
 import javafx.scene.control.Label;
 
-/** Faixa de mensagem no topo da página: erro ou sucesso, sem janelas modais. */
 public class Aviso extends Label {
 
     public Aviso() {

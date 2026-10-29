@@ -6,15 +6,12 @@ import hospedabem.model.NegocioException;
 import hospedabem.model.Quarto;
 import hospedabem.model.SituacaoQuarto;
 import hospedabem.model.TipoQuarto;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 
-/** UC04 Gerenciar Quarto. */
 public class TelaQuarto extends Pagina {
     private final ControladorQuarto controlador;
     private final TableView<Quarto> tabela = Campos.tabela(
@@ -99,9 +96,7 @@ public class TelaQuarto extends Pagina {
             return;
         }
         Quarto alvo = selecionado;
-        Alert confirmacao = new Alert(Alert.AlertType.CONFIRMATION, "Excluir o quarto " + alvo.getNumero() + "?",
-                ButtonType.YES, ButtonType.NO);
-        if (confirmacao.showAndWait().orElse(ButtonType.NO) != ButtonType.YES) return;
+        if (!Campos.confirmar("Excluir o quarto " + alvo.getNumero() + "?")) return;
         Tarefa.executar(origem, aviso, () -> {
             controlador.excluir(alvo);
             return alvo;

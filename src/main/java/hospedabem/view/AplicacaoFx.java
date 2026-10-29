@@ -7,14 +7,12 @@ import javafx.scene.control.Alert;
 import javafx.stage.Stage;
 import org.springframework.context.ConfigurableApplicationContext;
 
-/** Janela JavaFX. O contexto Spring é criado antes, em {@link hospedabem.App}, e fechado junto com a janela. */
 public class AplicacaoFx extends Application {
     public static final String ESTILO = "/hospedabem/view/estilo.css";
 
     private static ConfigurableApplicationContext contexto;
     private static String erroInicial;
 
-    /** erroInicial: mensagem a exibir quando o banco não pôde ser preparado; null se tudo certo. */
     public static void abrir(ConfigurableApplicationContext ctx, String erro, String[] args) {
         contexto = ctx;
         erroInicial = erro;

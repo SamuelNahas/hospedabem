@@ -105,7 +105,7 @@ class CheckInIT extends IntegracaoBase {
         c.adicionarHospede(BEATRIZ);
         c.adicionarHospede(DIEGO);
         assertThrows(NegocioException.class, () -> c.adicionarHospede(ELISA));
-        assertEquals(3, c.getParticipantes().size());
+        assertEquals(3, c.getAtendimento().getHospedes().size());
     }
 
     @Test
@@ -209,17 +209,17 @@ class CheckInIT extends IntegracaoBase {
     void metodosDoAtendimentoDevolvemOQueATelaApresenta() {
         ControladorCheckIn c = checkIns.getObject();
         assertEquals(RESERVA_CARGA, c.iniciarCheckIn(RESERVA_CARGA).getCodigo());
-        assertEquals(RESERVA_CARGA, c.getReserva().getCodigo());
-        assertEquals(CARLOS, c.getResponsavel().cpfOuPassaporte());
-        assertEquals("LUX", c.getTipo().codigo());
-        assertEquals(HOJE, c.getPeriodo().entrada());
+        assertEquals(RESERVA_CARGA, c.getAtendimento().getReserva().getCodigo());
+        assertEquals(CARLOS, c.getAtendimento().getResponsavel().cpfOuPassaporte());
+        assertEquals("LUX", c.getAtendimento().getTipo().codigo());
+        assertEquals(HOJE, c.getAtendimento().getPeriodo().entrada());
         assertEquals("Carlos Teste Silva", c.adicionarHospede(CARLOS).nome());
         var resumo = c.selecionarQuarto(201);
-        assertEquals(201, resumo.quarto().getNumero());
-        assertEquals(1, resumo.hospedes().size());
-        assertEquals(BEATRIZ, c.iniciarCheckInSemReserva(BEATRIZ, "STD", HOJE, HOJE.plusDays(1)).cpfOuPassaporte());
-        assertEquals(BEATRIZ, c.getResponsavel().cpfOuPassaporte());
-        assertNull(c.getReserva());
+        assertEquals(201, resumo.getQuarto().getNumero());
+        assertEquals(1, resumo.getHospedes().size());
+        assertEquals(BEATRIZ, c.iniciarCheckInSemReserva(BEATRIZ, "STD", HOJE, HOJE.plusDays(1)).getResponsavel().cpfOuPassaporte());
+        assertEquals(BEATRIZ, c.getAtendimento().getResponsavel().cpfOuPassaporte());
+        assertNull(c.getAtendimento().getReserva());
     }
 
     @Test
@@ -229,15 +229,15 @@ class CheckInIT extends IntegracaoBase {
         c.adicionarHospede(CARLOS);
         c.adicionarHospede(BEATRIZ);
         c.iniciarCheckIn(RESERVA_CARGA);
-        assertTrue(c.getParticipantes().isEmpty());
+        assertTrue(c.getAtendimento().getHospedes().isEmpty());
         c.adicionarHospede(CARLOS);
         c.iniciarCheckInSemReserva(CARLOS, "STD", HOJE, HOJE.plusDays(1));
-        assertTrue(c.getParticipantes().isEmpty());
+        assertTrue(c.getAtendimento().getHospedes().isEmpty());
 
         c.adicionarHospede(CARLOS);
         c.adicionarHospede(BEATRIZ);
-        c.removerHospede(c.getParticipantes().get(1));
-        assertEquals(List.of("Carlos Teste Silva"), c.getParticipantes().stream().map(h -> h.nome()).toList());
+        c.removerHospede(c.getAtendimento().getHospedes().get(1));
+        assertEquals(List.of("Carlos Teste Silva"), c.getAtendimento().getHospedes().stream().map(h -> h.nome()).toList());
         c.selecionarQuarto(101);
         c.confirmarCheckIn();
         assertEquals("Inicie o check-in com uma reserva ou sem reserva.",
@@ -275,5 +275,29 @@ class CheckInIT extends IntegracaoBase {
         jdbc.update("DELETE FROM quarto WHERE numero = 721");
         assertTrue(assertThrows(NegocioException.class, semReserva::confirmarCheckIn).getMessage()
                 .startsWith("Quarto 721 indisponível"));
+    }
+
+    @Test
+    void quartoVagoPrometidoAOutraReservaNaoRecebeCheckInSemReserva() {
+        TipoQuarto t = criarTipo("PROM", 2);
+        criarQuarto(731, t);
+        reservas.registrar(BEATRIZ, "PROM", HOJE, HOJE.plusDays(2), 1);
+        ControladorCheckIn c = checkIns.getObject();
+        c.iniciarCheckInSemReserva(CARLOS, "PROM", HOJE, HOJE.plusDays(1));
+        c.adicionarHospede(CARLOS);
+        assertThrows(NegocioException.class, c::consultarQuartosDisponiveis);
+    }
+
+    @Test
+    void reservaRegistradaAposOResumoTomaAUltimaVaga() {
+        TipoQuarto t = criarTipo("ULTV", 2);
+        criarQuarto(741, t);
+        ControladorCheckIn c = checkIns.getObject();
+        c.iniciarCheckInSemReserva(CARLOS, "ULTV", HOJE, HOJE.plusDays(1));
+        c.adicionarHospede(CARLOS);
+        c.selecionarQuarto(741);
+        reservas.registrar(BEATRIZ, "ULTV", HOJE, HOJE.plusDays(2), 1);
+        assertThrows(NegocioException.class, c::confirmarCheckIn);
+        assertEquals(0, contar("SELECT COUNT(*) FROM hospedagem"));
     }
 }

@@ -1,6 +1,3 @@
--- HospedaBem - Iteração 1 - Grupo N
--- Criação do esquema (PostgreSQL 12+). Não apaga dados: falha se as tabelas já existirem.
-
 CREATE TABLE funcionario (
     id                SERIAL PRIMARY KEY,
     matricula         VARCHAR(20)  NOT NULL UNIQUE,
@@ -13,7 +10,6 @@ CREATE TABLE funcionario (
     email             VARCHAR(120),
     data_contratacao  DATE         NOT NULL,
     perfil            VARCHAR(20)  NOT NULL CHECK (perfil IN ('ADMINISTRADOR', 'RECEPCIONISTA')),
-    -- PBKDF2-HMAC-SHA256: "pbkdf2$<iteracoes>$<salt base64>$<hash base64>"
     senha_hash        VARCHAR(200) NOT NULL,
     senha_alterada_em TIMESTAMP    NOT NULL DEFAULT now()
 );
@@ -59,7 +55,6 @@ CREATE TABLE reserva (
     situacao               VARCHAR(20) NOT NULL CHECK (situacao IN ('CONFIRMADA', 'CANCELADA', 'CONVERTIDA')),
     funcionario_id         INTEGER     NOT NULL REFERENCES funcionario (id) ON DELETE RESTRICT,
     registrada_em          TIMESTAMP   NOT NULL DEFAULT now(),
-    -- incrementada a cada alteração; o check-in a usa para detectar mudanças após o resumo
     versao                 INTEGER     NOT NULL DEFAULT 0,
     CHECK (data_saida_prevista > data_entrada_prevista)
 );
@@ -74,14 +69,11 @@ CREATE TABLE hospedagem (
     data_hora_saida     TIMESTAMP,
     situacao            VARCHAR(20) NOT NULL CHECK (situacao IN ('ATIVA', 'ENCERRADA')),
     quarto_id           INTEGER     NOT NULL REFERENCES quarto (id) ON DELETE RESTRICT,
-    -- "origina" 0..1 : 0..1 - UNIQUE impede converter a mesma reserva duas vezes
     reserva_id          INTEGER     UNIQUE REFERENCES reserva (id) ON DELETE RESTRICT,
     funcionario_id      INTEGER     NOT NULL REFERENCES funcionario (id) ON DELETE RESTRICT,
     CHECK (data_saida_prevista > data_hora_entrada::date),
     CHECK (data_hora_saida IS NULL OR data_hora_saida >= data_hora_entrada)
 );
-
--- No máximo uma hospedagem ativa por quarto, mesmo com várias instâncias do desktop.
 CREATE UNIQUE INDEX hospedagem_uma_ativa_por_quarto ON hospedagem (quarto_id) WHERE situacao = 'ATIVA';
 
 CREATE TABLE hospedagem_hospede (

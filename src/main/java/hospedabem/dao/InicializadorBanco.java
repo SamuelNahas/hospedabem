@@ -6,7 +6,6 @@ import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Cria esquema e carga fictícia somente quando o banco ainda não tem as tabelas; nunca apaga dados. */
 @Component
 public class InicializadorBanco {
     private final JdbcTemplate jdbc;

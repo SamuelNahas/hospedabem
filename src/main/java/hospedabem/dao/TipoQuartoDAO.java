@@ -29,10 +29,7 @@ public class TipoQuartoDAO {
                 codigo == null ? "" : codigo.trim().toUpperCase()).stream().findFirst();
     }
 
-    /**
-     * Bloqueia os tipos (SELECT ... FOR UPDATE) até o fim da transação, em ordem de id para evitar deadlock.
-     * Toda operação que altera a disponibilidade de um tipo passa por aqui, mesmo entre instâncias do desktop.
-     */
+    // Ordem crescente de id evita deadlock entre transações que bloqueiam mais de um tipo.
     public void bloquear(Collection<Integer> ids) {
         for (int id : new TreeSet<>(ids)) jdbc.queryForList("SELECT id FROM tipo_quarto WHERE id = ? FOR UPDATE", id);
     }
@@ -51,7 +48,6 @@ public class TipoQuartoDAO {
         jdbc.update("DELETE FROM tipo_quarto WHERE id = ?", id);
     }
 
-    /** Maior quantidade de hóspedes exigida por reservas vigentes ou hospedagens ativas deste tipo. */
     public int maiorOcupacaoVigente(int tipoId, LocalDate hoje) {
         return jdbc.queryForObject("""
                 SELECT GREATEST(

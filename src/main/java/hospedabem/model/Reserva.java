@@ -1,6 +1,7 @@
 package hospedabem.model;
 
-/** Reserva de um tipo de quarto; o quarto físico só é definido no check-in. */
+import java.time.LocalDate;
+
 public class Reserva {
     private final int id;
     private final int codigo;
@@ -25,12 +26,22 @@ public class Reserva {
         this.versao = versao;
     }
 
+    public void exigirPermiteCheckIn(LocalDate hoje) {
+        if (situacao != SituacaoReserva.CONFIRMADA)
+            throw new NegocioException("Reserva " + codigo + " está " + situacao.name().toLowerCase()
+                    + " e não permite check-in.");
+        if (hoje.isBefore(periodo.entrada()))
+            throw new NegocioException("A entrada prevista da reserva é " + periodo.entrada()
+                    + ". Check-in antecipado exige alterar a reserva (UC09, iteração 2).");
+        if (!hoje.isBefore(periodo.saida()))
+            throw new NegocioException("O período da reserva já terminou; ela não permite check-in.");
+    }
+
     public void converter(Hospedagem h) {
         situacao = SituacaoReserva.CONVERTIDA;
         h.setReserva(this);
     }
 
-    /** Detecta alteração por outra transação entre o resumo e a confirmação do check-in. */
     public boolean mesmoEstadoDe(Reserva outra) {
         return outra != null && id == outra.id && versao == outra.versao && situacao == outra.situacao
                 && tipo.id() == outra.tipo.id() && periodo.equals(outra.periodo)

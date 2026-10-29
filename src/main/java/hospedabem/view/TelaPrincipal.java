@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
-/** Estrutura após o login: barra lateral com as funcionalidades da iteração 1 e a página atual. */
 public class TelaPrincipal extends BorderPane {
     private final ScrollPane conteudo = new ScrollPane();
     private final List<Button> navegacao = new ArrayList<>();

@@ -11,10 +11,7 @@ import org.springframework.context.annotation.Bean;
 
 import java.time.Clock;
 
-/**
- * HospedaBem - Iteração 1 - Grupo N. Aplicação desktop JavaFX sobre Spring Boot (sem servidor web).
- * Esta classe não estende Application, o que permite rodar o JavaFX a partir do classpath (java -jar).
- */
+// Não estende Application para o JavaFX poder ser carregado do classpath do JAR único.
 @SpringBootApplication
 public class App {
 

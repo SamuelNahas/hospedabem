@@ -39,11 +39,4 @@ class SessaoTest {
         assertNull(s.getFuncionario());
         assertThrows(AcessoNegadoException.class, s::exigirQualquerPerfil);
     }
-
-    @Test
-    void disponibilidadeNuncaFicaNegativa() {
-        assertEquals(1, new Disponibilidade(null, 3, 2).livres());
-        assertEquals(0, new Disponibilidade(null, 2, 2).livres());
-        assertEquals(0, new Disponibilidade(null, 1, 3).livres());
-    }
 }

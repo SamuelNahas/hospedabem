@@ -2,7 +2,6 @@ package hospedabem.model;
 
 import java.time.LocalDate;
 
-/** Estadia no intervalo semiaberto [entrada, saida): o dia da saída não consome diária. */
 public record Periodo(LocalDate entrada, LocalDate saida) {
 
     public Periodo {

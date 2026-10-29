@@ -100,4 +100,68 @@ class DominioTest {
         assertFalse(base.mesmoEstadoDe(new Reserva(5, 1001, outro, LUXO, base.getPeriodo(), 2,
                 SituacaoReserva.CONFIRMADA, 1, 0)));
     }
+
+    @Test
+    void capacidadeAceitaOLimiteERecusaAlem() {
+        LUXO.exigirComporta(3);
+        assertEquals("O tipo LUX comporta 3 hóspede(s); são necessários 4.",
+                assertThrows(NegocioException.class, () -> LUXO.exigirComporta(4)).getMessage());
+    }
+
+    @Test
+    void cadastroSoDefineDisponivelOuManutencao() {
+        assertTrue(SituacaoQuarto.DISPONIVEL.definivelNoCadastro());
+        assertTrue(SituacaoQuarto.MANUTENCAO.definivelNoCadastro());
+        assertFalse(SituacaoQuarto.OCUPADO.definivelNoCadastro());
+        assertFalse(SituacaoQuarto.RESERVADO.definivelNoCadastro());
+    }
+
+    @Test
+    void quartoComHospedagemAtivaSoMudaNumeroOuAndar() {
+        Quarto livre = new Quarto(3, 201, 2, LUXO, SituacaoQuarto.DISPONIVEL);
+        livre.exigirAlteracaoPara(new Quarto(3, 201, 2, LUXO, SituacaoQuarto.MANUTENCAO));
+        assertThrows(NegocioException.class, () -> livre.exigirAlteracaoPara(new Quarto(3, 201, 2, LUXO, SituacaoQuarto.OCUPADO)));
+
+        Quarto hospedado = new Quarto(3, 201, 2, LUXO, SituacaoQuarto.OCUPADO, true);
+        hospedado.exigirAlteracaoPara(new Quarto(3, 205, 3, LUXO, SituacaoQuarto.OCUPADO));
+        TipoQuarto outro = new TipoQuarto(2, "STD", "Standard", 2, BigDecimal.TEN);
+        assertThrows(NegocioException.class, () -> hospedado.exigirAlteracaoPara(new Quarto(3, 201, 2, outro, SituacaoQuarto.OCUPADO)));
+        assertThrows(NegocioException.class, () -> hospedado.exigirAlteracaoPara(new Quarto(3, 201, 2, LUXO, SituacaoQuarto.DISPONIVEL)));
+    }
+
+    @Test
+    void quartoLivreParaEntradaEhDoTipoSemHospedagemENemEmManutencao() {
+        new Quarto(3, 201, 2, LUXO, SituacaoQuarto.DISPONIVEL).exigirLivrePara(LUXO);
+        TipoQuarto outro = new TipoQuarto(2, "STD", "Standard", 2, BigDecimal.TEN);
+        assertThrows(NegocioException.class, () -> new Quarto(3, 201, 2, LUXO, SituacaoQuarto.DISPONIVEL).exigirLivrePara(outro));
+        assertThrows(NegocioException.class, () -> new Quarto(3, 201, 2, LUXO, SituacaoQuarto.MANUTENCAO).exigirLivrePara(LUXO));
+        assertThrows(NegocioException.class, () -> new Quarto(3, 201, 2, LUXO, SituacaoQuarto.OCUPADO, true).exigirLivrePara(LUXO));
+    }
+
+    @Test
+    void reservaPermiteCheckInDaEntradaAteAVesperaDaSaida() {
+        Reserva r = reserva(0, SituacaoReserva.CONFIRMADA); // D a D+2
+        assertThrows(NegocioException.class, () -> r.exigirPermiteCheckIn(D.minusDays(1)));
+        r.exigirPermiteCheckIn(D);
+        r.exigirPermiteCheckIn(D.plusDays(1));
+        assertThrows(NegocioException.class, () -> r.exigirPermiteCheckIn(D.plusDays(2)));
+        assertThrows(NegocioException.class, () -> reserva(0, SituacaoReserva.CANCELADA).exigirPermiteCheckIn(D));
+    }
+
+    @Test
+    void solicitacaoDeReservaValidaDataQuantidadeECapacidade() {
+        Periodo dois = new Periodo(D, D.plusDays(2));
+        new SolicitacaoReserva(ANA, LUXO, dois, 3).validar(D);
+        assertThrows(NegocioException.class, () -> new SolicitacaoReserva(ANA, LUXO, dois, 1).validar(D.plusDays(1)));
+        assertThrows(NegocioException.class, () -> new SolicitacaoReserva(ANA, LUXO, dois, 0).validar(D));
+        assertThrows(NegocioException.class, () -> new SolicitacaoReserva(ANA, LUXO, dois, 4).validar(D));
+    }
+
+    @Test
+    void disponibilidadeExigeAoMenosUmQuartoLivre() {
+        new Disponibilidade(LUXO, 2, 1).exigirVaga();
+        assertEquals("Não há quarto do tipo LUX disponível no período.",
+                assertThrows(NegocioException.class, () -> new Disponibilidade(LUXO, 2, 2).exigirVaga()).getMessage());
+        assertEquals(0, new Disponibilidade(LUXO, 1, 3).livres());
+    }
 }

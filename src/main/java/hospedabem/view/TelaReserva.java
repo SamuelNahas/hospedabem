@@ -2,7 +2,7 @@ package hospedabem.view;
 
 import hospedabem.controller.ControladorDisponibilidade;
 import hospedabem.controller.ControladorReserva;
-import hospedabem.controller.Disponibilidade;
+import hospedabem.model.Disponibilidade;
 import hospedabem.model.Reserva;
 import hospedabem.model.TipoQuarto;
 import javafx.scene.control.Button;
@@ -15,7 +15,6 @@ import javafx.scene.layout.Priority;
 
 import java.time.LocalDate;
 
-/** UC08 Registrar Reserva. O código é gerado pelo banco e o funcionário é o da sessão. */
 public class TelaReserva extends Pagina {
 
     public TelaReserva(ControladorReserva controlador, ControladorDisponibilidade consultas) {

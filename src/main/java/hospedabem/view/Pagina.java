@@ -3,7 +3,6 @@ package hospedabem.view;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 
-/** Página do conteúdo principal: título, subtítulo e a faixa de avisos usada pelas tarefas. */
 public class Pagina extends VBox {
     protected final Aviso aviso = new Aviso();
 

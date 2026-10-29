@@ -1,7 +1,7 @@
 package hospedabem.view;
 
 import hospedabem.controller.ControladorDisponibilidade;
-import hospedabem.controller.Disponibilidade;
+import hospedabem.model.Disponibilidade;
 import hospedabem.model.TipoQuarto;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -11,7 +11,6 @@ import javafx.scene.control.TableView;
 
 import java.time.LocalDate;
 
-/** UC07 Consultar Disponibilidade de Quartos. Estadia [entrada, saída): o dia da saída não é ocupado. */
 public class TelaDisponibilidade extends Pagina {
     static final String TODOS = "Todos os tipos";
 

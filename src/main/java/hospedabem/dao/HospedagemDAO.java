@@ -16,7 +16,6 @@ public class HospedagemDAO {
         this.jdbc = jdbc;
     }
 
-    /** Grava a hospedagem, seus participantes e sua conta na transação corrente. */
     public void salvar(Hospedagem h, int funcionarioId) {
         Map<String, Object> gerado = jdbc.queryForMap("""
                 INSERT INTO hospedagem (data_hora_entrada, data_saida_prevista, situacao, quarto_id, reserva_id, funcionario_id)
