@@ -8,7 +8,7 @@ import hospedabem.controller.ControladorReserva;
 import hospedabem.controller.ControladorTipoQuarto;
 import hospedabem.model.Funcionario;
 import hospedabem.model.Perfil;
-import javafx.scene.Node;
+import javafx.geometry.Insets;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -25,6 +25,7 @@ import java.util.function.Supplier;
 
 public class TelaPrincipal extends BorderPane {
     private final ScrollPane conteudo = new ScrollPane();
+    private final VBox area = new VBox();
     private final List<Button> navegacao = new ArrayList<>();
 
     public TelaPrincipal(ConfigurableApplicationContext ctx, Funcionario funcionario) {
@@ -67,18 +68,23 @@ public class TelaPrincipal extends BorderPane {
         conteudo.setFitToWidth(true);
         conteudo.getStyleClass().add("conteudo");
         setLeft(barra);
-        setCenter(conteudo);
+        VBox.setVgrow(conteudo, Priority.ALWAYS);
+        area.getStyleClass().add("conteudo");
+        setCenter(area);
         checkIn.fire();
     }
 
-    private Button item(String texto, Supplier<Node> pagina) {
+    private Button item(String texto, Supplier<Pagina> pagina) {
         Button b = new Button(texto);
         b.getStyleClass().add("item-navegacao");
         b.setMaxWidth(Double.MAX_VALUE);
         b.setOnAction(e -> {
             navegacao.forEach(n -> n.getStyleClass().remove("ativo"));
             b.getStyleClass().add("ativo");
-            conteudo.setContent(pagina.get());
+            Pagina p = pagina.get();
+            VBox.setMargin(p.getAviso(), new Insets(16, 32, 0, 32));
+            area.getChildren().setAll(p.getAviso(), conteudo);
+            conteudo.setContent(p);
             conteudo.setVvalue(0);
         });
         navegacao.add(b);

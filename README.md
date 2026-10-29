@@ -54,7 +54,7 @@ Os controladores só verificam a permissão, abrem a transação, bloqueiam o ti
 
 Os nomes seguem o DC e o DCP: `TelaCheckIn`, `ControladorCheckIn.confirmarCheckIn()`, `QuartoDAO.buscarPorNumero/atualizar`, `HospedagemDAO.salvar`, `ReservaDAO.atualizar`, `Hospedagem.adicionarHospede/setQuarto`, `Quarto.ocupar()`, `Reserva.converter(Hospedagem)` e `ContaDaHospedagem`.
 
-A interface é uma janela única, com barra lateral de navegação, páginas em cartões e avisos de erro e sucesso no topo da página. O tema fica em `estilo.css`. As telas chamam os controladores fora da thread do JavaFX (`view/Tarefa.java`, com `javafx.concurrent.Task`). Os controladores verificam o perfil da sessão em toda operação. Assim, uma chamada direta sem permissão também é recusada.
+A interface é uma janela única, com barra lateral de navegação, páginas em cartões e avisos de erro e sucesso numa faixa fixa acima do conteúdo, visível mesmo com a página rolada. O tema fica em `estilo.css`. As telas chamam os controladores fora da thread do JavaFX (`view/Tarefa.java`, com `javafx.concurrent.Task`). Os controladores verificam o perfil da sessão em toda operação. Assim, uma chamada direta sem permissão também é recusada.
 
 ## Preparação
 
