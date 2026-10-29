@@ -227,4 +227,17 @@ class TelasE2E {
         assertEquals("ABERTA", consultar("SELECT situacao FROM conta_hospedagem"));
         assertEquals("1", consultar("SELECT COUNT(*) FROM reserva"));
     }
+
+    @Test
+    void erroNaEtapaDoQuartoFicaVisivelMesmoComAPaginaRolada() {
+        entrar("recep01", "Recep@123");
+        robo.clicar("Check-in");
+        robo.escrever("Código da reserva", "1001");
+        robo.clicar("Iniciar check-in");
+        robo.escreverNoCampoComDica("CPF ou passaporte do hóspede", "11111111111"); // digitado, mas não adicionado
+        robo.clicar("Consultar quartos disponíveis");
+        assertEquals("Informe ao menos um hóspede.", robo.aviso());
+        assertTrue(robo.avisoForaDaRolagem());
+        robo.capturar("erro-visivel-na-etapa-do-quarto");
+    }
 }

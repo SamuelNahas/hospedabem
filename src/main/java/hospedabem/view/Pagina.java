@@ -12,7 +12,11 @@ public class Pagina extends VBox {
         Label s = new Label(subtitulo);
         s.getStyleClass().add("subtitulo-pagina");
         s.setWrapText(true);
-        getChildren().addAll(t, s, aviso);
+        getChildren().addAll(t, s);
         getStyleClass().add("pagina");
+    }
+
+    public Aviso getAviso() {
+        return aviso;
     }
 }

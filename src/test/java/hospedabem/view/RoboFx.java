@@ -141,6 +141,14 @@ final class RoboFx {
                 .findFirst().orElse(""));
     }
 
+    boolean avisoForaDaRolagem() {
+        return naFx(() -> todos(Aviso.class).stream().filter(Node::isVisible).allMatch(a -> {
+            for (Node n = a.getParent(); n != null; n = n.getParent())
+                if (n instanceof javafx.scene.control.ScrollPane) return false;
+            return true;
+        }));
+    }
+
     boolean exibeTexto(String trecho) {
         return naFx(() -> todos(Label.class).stream().anyMatch(l -> l.getText() != null && l.getText().contains(trecho)));
     }

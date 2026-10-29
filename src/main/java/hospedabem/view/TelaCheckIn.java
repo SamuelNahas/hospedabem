@@ -122,6 +122,9 @@ public class TelaCheckIn extends Pagina {
             if (i >= 0) controlador.removerHospede(controlador.getAtendimento().getHospedes().get(i));
             atualizarParticipantes();
         });
+        documento.setOnAction(e -> adicionar.fire());
+        participantes.setPlaceholder(new Label("Nenhum hóspede adicionado. Digite o CPF ou passaporte e clique em "
+                + "\"Adicionar hóspede\" (ou tecle Enter)."));
         HBox linha = new HBox(documento, adicionar, remover);
         linha.getStyleClass().add("linha");
         HBox.setHgrow(documento, Priority.ALWAYS);
