@@ -25,10 +25,10 @@ public class TelaTipoQuarto extends Pagina {
         super("Tipos de quarto", "Cada tipo define a capacidade máxima de hóspedes e o valor da diária.");
         this.controlador = controlador;
 
-        Button novo = Campos.botao("Novo", "botao-secundario");
+        Button limpar = Campos.botao("Limpar formulário", "botao-secundario");
         Button excluir = Campos.botao("Excluir", "botao-perigo");
         Button buscar = Campos.botao("Buscar por código", "botao-secundario");
-        novo.setOnAction(e -> selecionar(null));
+        limpar.setOnAction(e -> selecionar(null));
         salvar.setOnAction(e -> salvar());
         excluir.setOnAction(e -> excluir(excluir));
         buscar.setOnAction(e -> {
@@ -45,7 +45,7 @@ public class TelaTipoQuarto extends Pagina {
                 Campos.cartao("Dados do tipo",
                         Campos.formulario("Código", codigo, "Descrição", descricao, "Capacidade máxima", capacidade,
                                 "Valor da diária (R$)", diaria),
-                        Campos.acoes(salvar, novo, buscar, excluir)));
+                        Campos.acoes(salvar, limpar, buscar, excluir)));
         recarregar();
     }
 
