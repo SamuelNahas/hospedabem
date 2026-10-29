@@ -1,0 +1,16 @@
+# PostgreSQL para desenvolvimento e testes: cria os bancos hospedabem (uso) e hospedabem_test (testes).
+services:
+  postgres:
+    image: postgres:17
+    container_name: hospedabem-pg
+    environment:
+      POSTGRES_USER: hospedabem
+      POSTGRES_PASSWORD: hospedabem
+      POSTGRES_DB: hospedabem
+    ports:
+      - "5432:5432"
+    volumes:
+      - hospedabem-dados:/var/lib/postgresql/data
+      - ./docker/criar-banco-teste.sql:/docker-entrypoint-initdb.d/criar-banco-teste.sql:ro
+volumes:
+  hospedabem-dados:
