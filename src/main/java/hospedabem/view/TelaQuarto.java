@@ -35,9 +35,9 @@ public class TelaQuarto extends Pagina {
         tipo.setMaxWidth(Double.MAX_VALUE);
         situacao.setMaxWidth(Double.MAX_VALUE);
 
-        Button novo = Campos.botao("Novo", "botao-secundario");
+        Button limpar = Campos.botao("Limpar formulário", "botao-secundario");
         Button excluir = Campos.botao("Excluir", "botao-perigo");
-        novo.setOnAction(e -> selecionar(null));
+        limpar.setOnAction(e -> selecionar(null));
         salvar.setOnAction(e -> salvar());
         excluir.setOnAction(e -> excluir(excluir));
         tabela.getSelectionModel().selectedItemProperty().addListener((obs, antes, q) -> {
@@ -50,8 +50,8 @@ public class TelaQuarto extends Pagina {
                 Campos.cartao("Quartos cadastrados", tabela),
                 Campos.cartao("Dados do quarto",
                         Campos.formulario("Número", numero, "Andar", andar, "Tipo", tipo, "Situação", situacao),
-                        dica, Campos.acoes(salvar, novo, excluir)));
-        Tarefa.executar(novo, aviso, consultas::listarTipos, lista -> tipo.getItems().setAll(lista));
+                        dica, Campos.acoes(salvar, limpar, excluir)));
+        Tarefa.executar(limpar, aviso, consultas::listarTipos, lista -> tipo.getItems().setAll(lista));
         recarregar();
     }
 
