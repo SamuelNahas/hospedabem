@@ -136,9 +136,11 @@ Em rede local, cada estação aponta `HB_DB_URL` para o servidor PostgreSQL, por
 
 ```bash
 mvn package -DskipTests
-java -jar target/hospedabem.jar
-# ou: mvn spring-boot:run
+java -jar target/hospedabem.jar --hb.demo=true   # primeira execução, com o banco vazio: cria a carga de demonstração
+java -jar target/hospedabem.jar                  # execuções seguintes
 ```
+
+A opção `--hb.demo=true` só tem efeito quando o banco está vazio. Ela executa `db/demo.sql` depois de `db/seed.sql`, com mais hóspedes, o tipo EXE, os quartos 302 e 501 a 503, reservas futuras, canceladas e convertidas e duas hospedagens ativas. Os testes não usam essa carga. Para recomeçar do zero: `docker exec hospedabem-pg psql -U hospedabem -d hospedabem -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"` (apaga os dados do banco de uso).
 
 ### Credenciais de demonstração (DADOS FICTÍCIOS DE TESTE)
 
