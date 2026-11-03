@@ -24,6 +24,12 @@ class ReservaIT extends IntegracaoBase {
     }
 
     @Test
+    void buscarResponsavelRetornaOHospedeCadastrado() {
+        assertEquals(CARLOS, reservas.buscarResponsavel(CARLOS).cpfOuPassaporte());
+        assertThrows(NegocioException.class, () -> reservas.buscarResponsavel("99999999999"));
+    }
+
+    @Test
     void quantidadeAcimaDaCapacidadeOuNaoPositivaEhRecusada() {
         assertThrows(NegocioException.class, () -> reservas.registrar(CARLOS, "STD", HOJE, HOJE.plusDays(1), 3));
         assertThrows(NegocioException.class, () -> reservas.registrar(CARLOS, "STD", HOJE, HOJE.plusDays(1), 0));

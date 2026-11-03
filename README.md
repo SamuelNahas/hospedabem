@@ -132,12 +132,12 @@ Há quatro níveis de teste. Todos rodam com `mvn test`, exceto a mutação, que
 | Nível | Arquivos | O que cobre | Banco |
 |---|---|---|---|
 | Unitário | `*Test` (41 testes) | Todas as regras do `model` (`Atendimento`, `Quarto`, `Reserva`, `SolicitacaoReserva`, `TipoQuarto`, `Periodo`, `Ocupacao`, `Disponibilidade`), `Sessao`, hash de senha, mensagens de erro, conversão de campos | não usa |
-| Integração | `*IT` (54 testes) | Controladores + services + DAOs + PostgreSQL: regras dos 6 UCs, transação do check-in, falha injetada na gravação, concorrência entre conexões, reinício | `hospedabem_test` |
-| Ponta a ponta (E2E) | `TelasE2E` (5 testes) | Telas JavaFX reais operadas como um usuário (`RoboFx`): login, permissões, cadastros, disponibilidade, reserva, check-in com e sem reserva. Confere a tela e o banco. | `hospedabem_test` |
+| Integração | `*IT` (55 testes) | Controladores + services + DAOs + PostgreSQL: regras dos 6 UCs, transação do check-in, falha injetada na gravação, concorrência entre conexões, reinício | `hospedabem_test` |
+| Ponta a ponta (E2E) | `TelasE2E` (6 testes) | Telas JavaFX reais operadas como um usuário (`RoboFx`): login, permissões, cadastros, disponibilidade, reserva, check-in com e sem reserva. Confere a tela e o banco. | `hospedabem_test` |
 | Mutação | PIT (`pitest-maven`) | Altera o código de `model`, `controller` e `service` e verifica se algum teste falha | `hospedabem_test` |
 
 ```bash
-mvn test                      # unitários + integração + E2E (100 testes)
+mvn test                      # unitários + integração + E2E (102 testes)
 mvn test -Dtest='*Test'       # somente unitários, sem banco
 mvn test -Dtest='TelasE2E' -Dhb.e2e.capturas=docs/telas   # E2E salvando a captura de cada passo
 mvn test-compile org.pitest:pitest-maven:mutationCoverage  # mutação; relatório em target/pit-reports/index.html
@@ -147,14 +147,14 @@ Os testes de integração e E2E recriam o esquema **somente do banco de teste**.
 
 Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem monitor, use `xvfb-run mvn test`. A mutação roda numa única thread, porque os testes compartilham o banco de teste.
 
-### Resultado verificado em 29/10/2026 (OpenJDK 17.0.21, PostgreSQL 17)
+### Resultado verificado em 03/11/2026 (OpenJDK 27 com `--release 17`, PostgreSQL 17)
 
-- `mvn package`: **100 testes, 0 falhas, 0 erros** (41 unitários, 54 de integração, 5 E2E).
-- Mutação (PIT 1.17.4): **214 mutantes, 208 mortos (97%)**, nenhum sem cobertura, força de teste de 97%. O build exige no mínimo 95% (`mutationThreshold`). Os 6 sobreviventes são equivalentes ou inobserváveis em teste:
+- `mvn package`: **102 testes, 0 falhas, 0 erros** (41 unitários, 55 de integração, 6 E2E).
+- Mutação (PIT 1.17.4): **234 mutantes, 228 mortos (97%)**, nenhum sem cobertura, força de teste de 97%. O build exige no mínimo 95% (`mutationThreshold`). Os 6 sobreviventes são equivalentes ou inobserváveis em teste:
   - 4 remoções de `TipoQuartoDAO.bloquear` nos cadastros de tipo e quarto. O bloqueio só faz diferença com transações concorrentes, e um teste para isso dependeria de corrida de threads, ou seja, seria instável. O bloqueio equivalente da reserva é verificado por `ConcorrenciaIT`.
   - `PBEKeySpec.clearPassword()`: limpeza de memória, sem efeito observável.
   - `SET LOCAL statement_timeout = 3000` da consulta de disponibilidade: só se manifesta com uma consulta lenta.
-- A primeira rodada do PIT (80%) revelou lacunas reais, cobertas depois por testes: etapas do check-in fora de ordem, manutenção do quarto após o resumo com folga no tipo, reserva ou quarto apagados antes da confirmação, capacidade exatamente no limite e senha não apagada da memória. Revelou também duas pré-checagens de duplicidade redundantes com a restrição `UNIQUE` do banco, que foram removidas. Depois da separação das regras no `model`, a mutação apontou mais uma lacuna, já coberta: check-in sem reserva quando a última vaga do tipo pertence à reserva de outro hóspede.
+- A primeira rodada do PIT (80%) revelou lacunas reais, cobertas depois por testes: etapas do check-in fora de ordem, manutenção do quarto após o resumo com folga no tipo, reserva ou quarto apagados antes da confirmação, capacidade exatamente no limite e senha não apagada da memória. Revelou também duas pré-checagens de duplicidade redundantes com a restrição `UNIQUE` do banco, que foram removidas. Depois da separação das regras no `model`, a mutação apontou mais uma lacuna, já coberta: check-in sem reserva quando a última vaga do tipo pertence à reserva de outro hóspede. Com a criação da camada `service`, apontou `ControladorReserva.buscarResponsavel` sem teste, coberto por `ReservaIT.buscarResponsavelRetornaOHospedeCadastrado`.
 - Os E2E encontraram um problema de interface: o item do menu e o botão da página de reserva tinham o mesmo texto. O botão passou a se chamar "Confirmar reserva". Capturas e mensagens estão em [docs/demonstracao.md](docs/demonstracao.md).
 
 ## Verificação: casos de uso × telas × testes
