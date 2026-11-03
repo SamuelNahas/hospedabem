@@ -19,7 +19,7 @@ Este ZIP contém só a pasta `src/`. O projeto completo, com `pom.xml`, `README.
 ## Onde está cada coisa
 
 - Ponto de entrada: `src/main/java/hospedabem/App.java` (classe `hospedabem.App`).
-- SQL de criação e carga fictícia: `src/main/resources/db/schema.sql` e `src/main/resources/db/seed.sql`. A aplicação os executa sozinha na primeira vez, se o banco estiver vazio.
+- SQL de criação e carga fictícia: `src/main/resources/db/schema.sql`, `db/seed.sql` (carga básica, usada também pelos testes) e `db/demo.sql` (carga extra de demonstração, só com `--hb.demo=true`). A aplicação os executa sozinha na primeira vez, se o banco estiver vazio.
 - Configuração: `src/main/resources/application.properties`. Credenciais por variável de ambiente: `HB_DB_URL`, `HB_DB_USER` e `HB_DB_PASSWORD`. Testes: `HB_TEST_DB_URL`, `HB_TEST_DB_USER` e `HB_TEST_DB_PASSWORD`.
 - Testes: `src/test/java`. Unitários (`*Test`) não usam banco. Os de integração (`*IT`) e os de ponta a ponta (`TelasE2E`) usam o banco `hospedabem_test` e recriam o esquema dele.
 
@@ -29,12 +29,46 @@ Este ZIP contém só a pasta `src/`. O projeto completo, com `pom.xml`, `README.
 2. Rode:
 
 ```bash
-mvn test                        # 100 testes: unitários, integração e E2E (exige o banco hospedabem_test)
+mvn test                        # 102 testes: unitários, integração e E2E (exige o banco hospedabem_test)
 mvn package -DskipTests         # gera target/hospedabem.jar
-java -jar target/hospedabem.jar # executa a aplicação desktop
 ```
 
-Credenciais fictícias de demonstração: `admin01` / `Admin@123` (administrador) e `recep01` / `Recep@123` (recepcionista).
+## Executar com dados de demonstração (recomendado para avaliar)
+
+Com o banco `hospedabem` vazio, rode **este comando**:
+
+```bash
+java -jar target/hospedabem.jar --hb.demo=true
+```
+
+Na primeira execução, a aplicação cria as tabelas, a carga básica (`db/seed.sql`) e a carga de demonstração (`db/demo.sql`). Nas execuções seguintes, basta `java -jar target/hospedabem.jar`: os dados ficam gravados e nunca são apagados pela aplicação.
+
+Se o banco já tiver dados e você quiser recomeçar do zero, apague o esquema do banco de uso (nunca o de testes) e rode o comando acima de novo:
+
+```bash
+psql -U hospedabem -d hospedabem -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+```
+
+Credenciais fictícias: `admin01` / `Admin@123` (administrador) e `recep01` / `Recep@123` (recepcionista).
+
+O que a carga de demonstração contém (todos os dados são fictícios):
+
+| Dado | Conteúdo |
+|---|---|
+| Hóspedes | 11 hóspedes, entre eles Carlos `11111111111`, Beatriz `22222222222`, Elisa `44444444444` e John (passaporte `XP1234567`) |
+| Tipos de quarto | STD (2 pessoas, R$ 180), LUX (3, R$ 320), SUI (4, R$ 550) e EXE (2, R$ 260) |
+| Quartos | 101, 102, 103 (STD; 103 em manutenção), 201, 202 (LUX), 301, 302 (SUI), 501, 502, 503 (EXE; 503 em manutenção) |
+| Reservas | **1001** (Carlos, LUX, de hoje a hoje+3: use para o check-in com reserva), futuras confirmadas (2001 a 2004), uma cancelada (2005) e uma já convertida em hospedagem (2006) |
+| Hospedagens ativas | 9001 no quarto 501 e 9002 no quarto 301, com conta aberta |
+
+Roteiro curto para testar cada caso de uso:
+
+1. **Login (UC01):** entre como `recep01`; os cadastros aparecem desabilitados. Saia e entre como `admin01`.
+2. **Disponibilidade (UC07):** de hoje a hoje+3, todos os tipos. O EXE fica sem vaga amanhã (hospedagem 9001 e reserva 2001).
+3. **Reserva (UC08):** Beatriz `22222222222`, STD, de amanhã a amanhã+3, 2 hóspedes. Com 3 hóspedes, a capacidade é recusada.
+4. **Check-in com reserva (UC10):** reserva `1001`, hóspedes `11111111111` e `22222222222`, quarto 201.
+5. **Check-in sem reserva (UC10):** responsável `XP1234567`, STD, de hoje a hoje+2, hóspedes `XP1234567` e `44444444444`, quarto 101.
+6. **Cadastros (UC03 e UC04):** inclua um tipo e um quarto. A situação OCUPADO é recusada no cadastro.
 
 ### pom.xml
 
@@ -130,6 +164,7 @@ Os testes E2E (`TelasE2E`) abrem janelas JavaFX: rode-os numa sessão gráfica (
           <targetClasses>
             <param>hospedabem.model.*</param>
             <param>hospedabem.controller.*</param>
+            <param>hospedabem.service.*</param>
           </targetClasses>
           <targetTests>
             <param>hospedabem.*</param>

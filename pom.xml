@@ -85,6 +85,7 @@
           <targetClasses>
             <param>hospedabem.model.*</param>
             <param>hospedabem.controller.*</param>
+            <param>hospedabem.service.*</param>
           </targetClasses>
           <targetTests>
             <param>hospedabem.*</param>
