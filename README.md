@@ -21,7 +21,31 @@ Ficam para as próximas iterações: cadastro de hóspedes (UC06) e de funcioná
 
 Java 17+, **JavaFX 21 com CSS**, Spring Boot 3.4 **sem servidor web** (`spring.main.web-application-type=none`), Spring JDBC (`JdbcTemplate`, HikariCP, `@Transactional`), PostgreSQL, Maven e JUnit 5.
 
-O Spring Boot é usado como contêiner de injeção de dependências e gerenciador de transações. A aplicação continua desktop, como exigem os documentos.
+### Por que cada tecnologia
+
+Cada escolha parte de uma exigência da disciplina ou dos requisitos do HospedaBem:
+
+| Escolha | Justificativa |
+|---|---|
+| **Java 17** | A definição do trabalho exige implementação em Java, desktop, com persistência em SGBD relacional (*Definição do Trabalho Prático*, p. 4). Java também mapeia diretamente o DCP: cada classe, atributo, visibilidade e método do diagrama vira um elemento da linguagem. O Java 17 é a versão de suporte longo (LTS) exigida pelo Spring Boot 3. |
+| **JavaFX 21** | O trabalho é desktop. O JavaFX é o toolkit de interface atual do Java, sucessor do Swing, e roda em Windows, Linux e macOS (RNF-13). O CSS separa o visual do código das telas, de modo que a `view` só monta componentes, sem regra de negócio (*Model-View Separation*, Larman, cap. 13). |
+| **Spring Boot, sem servidor web** | É usado só como contêiner de injeção de dependências e de transações; a aplicação continua desktop. A injeção cria as ligações `controller → service → DAO` pelos construtores, então nenhuma classe instancia as próprias dependências (Baixo Acoplamento, GRASP). O `@Transactional` garante que as pós-condições de um contrato valham todas ou nenhuma, e atende ao RNF-4 (dados da última operação não ficam pela metade em caso de falha). |
+| **Spring JDBC (`JdbcTemplate`)** | Implementa o padrão de projeto DAO apresentado na disciplina (slides M3-U1, p. 52–53) com SQL explícito, sem framework de mapeamento objeto-relacional. Assim, o SQL de cada operação fica visível e conferível no DAO correspondente. |
+| **HikariCP** | Pool de conexões com tempo limite de conexão de 10 s, exigido pelo RNF-1, e conexões reaproveitadas entre as estações da rede local (RNF-3). |
+| **PostgreSQL** | É uma das duas opções do RNF-14. Foi escolhido porque o banco também protege as regras com várias recepções ao mesmo tempo (RNF-3): bloqueio de linha (`SELECT ... FOR UPDATE`), índice único parcial (uma hospedagem ativa por quarto) e `CHECK`. |
+| **Maven** | Build reproduzível: as dependências e as versões ficam declaradas no `pom.xml`, e qualquer membro do grupo ou a professora compila com um comando. Também gera os componentes nativos do JavaFX para o sistema do build (RNF-13). |
+| **JUnit 5 e PIT** | O trabalho é avaliado por testes funcionais caixa-preta (*Definição do Trabalho Prático*, p. 3). Os testes automatizados conferem cada regra e cada pós-condição antes disso, e o teste de mutação (PIT) mede se os testes realmente detectam erros. |
+
+### Por que MVC em camadas, com service e DAO
+
+| Camada | Justificativa |
+|---|---|
+| **Arquitetura em camadas e MVC** | O RNF-11 exige um sistema em módulos, em que partes possam ser adicionadas, excluídas ou alteradas sem afetar o todo. Cada camada só conhece a de baixo, então trocar a tela, o banco ou uma regra não afeta as outras (*Layers*, Larman, cap. 13). |
+| **`view`** | Telas JavaFX sem SQL e sem regra de negócio, pelo princípio *Model-View Separation* (Larman, cap. 13). As telas chamam os controladores fora da thread do JavaFX, para a interface não travar enquanto o banco responde. |
+| **`controller`** | Padrão Controlador do GRASP: recebe as operações de sistema do DSS (`iniciarCheckIn`, `adicionarHospede`, ..., `confirmarCheckIn`). Há um controlador por caso de uso (*use case controller*), e não um único para o sistema todo, para manter cada um coeso. O controlador também verifica o perfil da sessão em toda operação (RNF-10). |
+| **`service`** | *Pure Fabrication* do GRASP (Larman, cap. 25): uma classe que não existe no domínio do hotel e foi criada para tirar a transação e os bloqueios das classes de domínio. |
+| **`dao`** | Padrão de projeto DAO (slides M3-U1, p. 52–53): isola o acesso ao banco. Um DAO por entidade. |
+| **`model`** | As regras de negócio ficam nas classes de domínio, pelo padrão Especialista na Informação: quem tem a informação tem a responsabilidade (`Quarto.exigirLivrePara`, `TipoQuarto.exigirComporta`). Por isso o modelo é testado sem banco. |
 
 ```
 src/main/java/hospedabem/
@@ -51,7 +75,7 @@ As regras de negócio ficam no `model` e são testadas sem banco:
 | Vaga no tipo | `Disponibilidade.exigirVaga` |
 | Check-in: participantes, quarto escolhido, reserva inalterada e contrato de `confirmarCheckIn()` | `Atendimento` |
 
-Os controladores só verificam a permissão e delegam a um service por caso de uso (`ServicoCheckIn`, `ServicoReserva`, `ServicoQuarto`, `ServicoTipoQuarto`, `ServicoDisponibilidade`, `ServicoAutenticacao`). O service abre a transação, bloqueia o tipo, lê e grava pelos DAOs e chama essas regras. As regras ficam no model, e não no service, porque cada uma pertence ao objeto que tem a informação (padrão Especialista da GRASP), como no DCP (`Quarto.ocupar()`, `Reserva.converter()`).
+Há um service por caso de uso (`ServicoCheckIn`, `ServicoReserva`, `ServicoQuarto`, `ServicoTipoQuarto`, `ServicoDisponibilidade`, `ServicoAutenticacao`). Ele abre a transação, bloqueia o tipo, lê e grava pelos DAOs e chama essas regras. As regras ficam no model, e não no service, porque cada uma pertence ao objeto que tem a informação (Especialista na Informação), como no DCP (`Quarto.ocupar()`, `Reserva.converter()`).
 
 Os nomes seguem o DC e o DCP: `TelaCheckIn`, `ControladorCheckIn.confirmarCheckIn()`, `QuartoDAO.buscarPorNumero/atualizar`, `HospedagemDAO.salvar`, `ReservaDAO.atualizar`, `Hospedagem.adicionarHospede/setQuarto`, `Quarto.ocupar()`, `Reserva.converter(Hospedagem)` e `ContaDaHospedagem`.
 
@@ -67,7 +91,7 @@ A interface é uma janela única, com barra lateral de navegação, páginas em 
 | Maven | 3.9 ou superior | `mvn -v` |
 | PostgreSQL | 12 ou superior, ou Docker | `psql --version` ou `docker --version` |
 
-O que foi encontrado nesta máquina (macOS, 29/10/2026): o `java` do sistema não encontrava runtime, mas havia um OpenJDK 27 do Homebrew fora do `PATH`. Maven e PostgreSQL não estavam instalados. A configuração usada, com a qual tudo foi verificado, foi:
+No macOS, com Homebrew:
 
 ```bash
 brew install maven openjdk@17                       # Maven 3.10 e OpenJDK 17.0.21
@@ -155,7 +179,7 @@ Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem mon
   - `PBEKeySpec.clearPassword()`: limpeza de memória, sem efeito observável.
   - `SET LOCAL statement_timeout = 3000` da consulta de disponibilidade: só se manifesta com uma consulta lenta.
 - A primeira rodada do PIT (80%) revelou lacunas reais, cobertas depois por testes: etapas do check-in fora de ordem, manutenção do quarto após o resumo com folga no tipo, reserva ou quarto apagados antes da confirmação, capacidade exatamente no limite e senha não apagada da memória. Revelou também duas pré-checagens de duplicidade redundantes com a restrição `UNIQUE` do banco, que foram removidas. Depois da separação das regras no `model`, a mutação apontou mais uma lacuna, já coberta: check-in sem reserva quando a última vaga do tipo pertence à reserva de outro hóspede. Com a criação da camada `service`, apontou `ControladorReserva.buscarResponsavel` sem teste, coberto por `ReservaIT.buscarResponsavelRetornaOHospedeCadastrado`.
-- Os E2E encontraram um problema de interface: o item do menu e o botão da página de reserva tinham o mesmo texto. O botão passou a se chamar "Confirmar reserva". Capturas e mensagens estão em [docs/demonstracao.md](docs/demonstracao.md).
+- Os E2E encontraram um problema de interface: o item do menu e o botão da página de reserva tinham o mesmo texto. O botão passou a se chamar "Confirmar reserva". As capturas estão em `docs/telas`.
 
 ## Verificação: casos de uso × telas × testes
 
@@ -170,10 +194,10 @@ Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem mon
 
 ## Decisões de implementação e divergências dos artefatos
 
-1. **Spring Boot e MVC.** Usado sem servidor web. As transações ficam nos services (`@Transactional`), chamados pelos controladores. Os DAOs usam `JdbcTemplate` e compartilham a conexão da transação corrente. Assim, as gravações separadas mostradas no DC (1.7, 1.8 e 1.9) resultam em um único commit ou rollback.
+1. **Transação por operação de sistema.** As transações ficam nos services (`@Transactional`), chamados pelos controladores. Os DAOs usam `JdbcTemplate` e compartilham a conexão da transação corrente. Assim, as gravações separadas mostradas no DC (1.7, 1.8 e 1.9) resultam em um único commit ou rollback.
 2. **Dinheiro:** `BigDecimal` e `NUMERIC(10,2)`, em vez do `double` do DCP.
 3. **Datas:** `LocalDate` para datas previstas (reserva e saída prevista) e `LocalDateTime` para entrada e saída efetivas. O DCP usa `LocalDateTime` nas datas previstas da reserva, mas os requisitos e o DSS trabalham com datas.
-4. **Situações e perfis** são enums, persistidos como texto com `CHECK` no banco.
+4. **Situações e perfis** são enums, persistidos como texto com `CHECK` no banco. O enum restringe os valores no código e o `CHECK` no banco, de modo que nenhuma situação fora do modelo conceitual pode ser gravada.
 5. **`confirmarCheckIn()` retorna `Hospedagem`**, como no DSS, em vez de `void` (DC/DCP). Assim, a tela mostra o código da hospedagem, a entrada, o quarto e o número da conta aberta.
 6. **O controlador de check-in guarda o atendimento** (reserva, responsável, tipo, período, participantes e quarto) e implementa os eventos do DSS: `iniciarCheckIn`, `iniciarCheckInSemReserva`, `adicionarHospede`, `consultarQuartosDisponiveis`, `selecionarQuarto` e `confirmarCheckIn`. Há um objeto por tela (escopo *prototype*).
 7. **Intervalo de estadia `[entrada, saída)`:** o dia da saída não consome diária. Por isso, períodos apenas adjacentes não se sobrepõem.
@@ -186,9 +210,9 @@ Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem mon
 14. **Mudança de reserva entre o resumo e a confirmação** é detectada pela coluna `versao`, incrementada a cada atualização, e pela comparação de situação, tipo, período, quantidade e responsável.
 15. **Hóspede não cadastrado:** como o UC06 é da iteração 2, a mensagem informa o impedimento. Use os hóspedes da carga inicial.
 16. **Senhas:** PBKDF2-HMAC-SHA256 com 210.000 iterações e *salt* de 16 bytes. Os documentos dizem "criptografadas", mas o hash não é reversível de propósito. O login gasta o mesmo tempo para matrícula existente ou inexistente.
-17. **Códigos** de reserva (a partir de 1001) e de hospedagem (a partir de 5001) vêm de sequências do banco. O código do tipo de quarto é texto (por exemplo, `STD`), e não `int` como no DCP.
+17. **Códigos** de reserva (a partir de 1001) e de hospedagem (a partir de 5001) vêm de sequências do banco. O código do tipo de quarto é texto (por exemplo, `STD`), e não `int` como no DCP, porque é o código que o recepcionista lê e digita nas telas de reserva e check-in.
 18. **JavaFX pelo classpath:** o JAR único (Spring Boot) carrega o JavaFX do classpath. Por isso, `App` não estende `Application` e delega a `view/AplicacaoFx`. O aviso `Unsupported JavaFX configuration` no log é esperado e não afeta o funcionamento.
-19. **Arquivo Astah (`GrupoN.asta`)** não foi aberto (formato nativo). Os diagramas foram consultados nas exportações `GrupoN_DC.jpg` e `GrupoN_DCP.jpg`.
+19. **Fonte dos diagramas:** a implementação segue as exportações `GrupoN_DC.jpg` e `GrupoN_DCP.jpg` do projeto Astah do grupo (`GrupoN.asta`).
 
 ## Transações, concorrência e falhas
 
@@ -207,7 +231,7 @@ Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem mon
 
   Para perda mínima, configure arquivamento de WAL (`archive_mode`) no servidor. Isso depende da implantação.
 
-## Requisitos não funcionais: situação real
+## Requisitos não funcionais: como são atendidos
 
 | RNF | Situação |
 |---|---|
@@ -216,19 +240,20 @@ Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem mon
 | RNF-4, RNF-5 | Atomicidade testada. Backup por `pg_dump` documentado, mas não automatizado. |
 | RNF-6 (24×7) | Depende da implantação: servidor PostgreSQL com reinício automático, *nobreak* e backup. Não testado. |
 | RNF-7 | Atendido com hash PBKDF2 e teste correspondente. |
-| RNF-8 (troca periódica) | **Adiado.** A coluna `senha_alterada_em` existe, mas a troca e a expiração de senha dependem do gerenciamento de funcionários (iteração 2). Não há tela de troca de senha nesta entrega. |
+| RNF-8 (troca periódica) | Planejado para a iteração 2, junto com o gerenciamento de funcionários, do qual depende. A coluna `senha_alterada_em` já existe. |
 | RNF-9 | Configuração de rede local documentada. Depende do `pg_hba.conf` e do *firewall*. |
 | RNF-10 | Atendido: perfis verificados no controlador e testados. |
-| RNF-11 | Camadas MVC e DAOs por entidade. |
+| RNF-11 | Camadas MVC com service e DAO por entidade. Cada camada só depende da de baixo (ver "Por que MVC em camadas"). |
 | RNF-12 | O check-in ocupa uma página com 4 etapas; a confirmação fica na última. Dentro do limite de 5. |
 | RNF-13 | Java, JavaFX e PostgreSQL são multiplataforma. O Maven baixa os componentes nativos do JavaFX do sistema em que o build é feito: gere o JAR em cada sistema operacional de destino. **Executado apenas no macOS.** |
-| RNF-14 | PostgreSQL. MySQL não foi implementado: o SQL usa `RETURNING`, índice parcial e `FOR UPDATE OF`, específicos do PostgreSQL. |
+| RNF-14 | Atendido com PostgreSQL, uma das duas opções do requisito. O SQL usa recursos do PostgreSQL (`RETURNING`, índice parcial e `FOR UPDATE OF`) para proteger as regras no próprio banco. |
 
-## Pendências reais
+## Próximas iterações
 
-- UC06 (hóspedes) e o gerenciamento de funcionários: nesta iteração existem apenas o modelo, as consultas e a carga fictícia.
-- RNF-8: troca periódica de senha.
-- Vídeo da entrega: precisa ser gravado com a execução real. Siga [docs/roteiro-demonstracao.md](docs/roteiro-demonstracao.md).
+O Processo Unificado é iterativo: cada iteração entrega um conjunto de casos de uso completo, da análise ao código testado. Ficam para as próximas iterações, conforme a listagem de casos de uso:
+
+- UC06 (hóspedes) e o gerenciamento de funcionários. Nesta iteração já existem o modelo, as consultas e a carga fictícia que eles vão usar.
+- RNF-8: troca periódica de senha, que depende do gerenciamento de funcionários. A coluna `senha_alterada_em` já existe.
 
 ## Entrega em ZIP
 
