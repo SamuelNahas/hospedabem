@@ -28,7 +28,8 @@ src/main/java/hospedabem/
 ├── App.java            ponto de entrada (Spring Boot + JavaFX)
 ├── model/              Model: entidades e TODAS as regras de negócio, sem banco nem tela (Atendimento, Quarto, Reserva, ...)
 ├── dao/                persistência JDBC (QuartoDAO, ReservaDAO, HospedagemDAO, ...)
-├── controller/         Controller: permissão, transação, bloqueio e DAOs; delega as regras ao model
+├── controller/         Controller: verifica a permissão da sessão e delega ao service
+├── service/            Service: um por caso de uso; transação, bloqueio e DAOs; chama as regras do model
 └── view/               View: telas JavaFX (TelaLogin, TelaPrincipal, TelaCheckIn, ...), sem SQL e sem regra de negócio
 src/main/resources/
 ├── application.properties
@@ -50,7 +51,7 @@ As regras de negócio ficam no `model` e são testadas sem banco:
 | Vaga no tipo | `Disponibilidade.exigirVaga` |
 | Check-in: participantes, quarto escolhido, reserva inalterada e contrato de `confirmarCheckIn()` | `Atendimento` |
 
-Os controladores só verificam a permissão, abrem a transação, bloqueiam o tipo, leem e gravam pelos DAOs e chamam essas regras.
+Os controladores só verificam a permissão e delegam a um service por caso de uso (`ServicoCheckIn`, `ServicoReserva`, `ServicoQuarto`, `ServicoTipoQuarto`, `ServicoDisponibilidade`, `ServicoAutenticacao`). O service abre a transação, bloqueia o tipo, lê e grava pelos DAOs e chama essas regras. As regras ficam no model, e não no service, porque cada uma pertence ao objeto que tem a informação (padrão Especialista da GRASP), como no DCP (`Quarto.ocupar()`, `Reserva.converter()`).
 
 Os nomes seguem o DC e o DCP: `TelaCheckIn`, `ControladorCheckIn.confirmarCheckIn()`, `QuartoDAO.buscarPorNumero/atualizar`, `HospedagemDAO.salvar`, `ReservaDAO.atualizar`, `Hospedagem.adicionarHospede/setQuarto`, `Quarto.ocupar()`, `Reserva.converter(Hospedagem)` e `ContaDaHospedagem`.
 
@@ -131,9 +132,9 @@ Há quatro níveis de teste. Todos rodam com `mvn test`, exceto a mutação, que
 | Nível | Arquivos | O que cobre | Banco |
 |---|---|---|---|
 | Unitário | `*Test` (41 testes) | Todas as regras do `model` (`Atendimento`, `Quarto`, `Reserva`, `SolicitacaoReserva`, `TipoQuarto`, `Periodo`, `Ocupacao`, `Disponibilidade`), `Sessao`, hash de senha, mensagens de erro, conversão de campos | não usa |
-| Integração | `*IT` (54 testes) | Controladores + DAOs + PostgreSQL: regras dos 6 UCs, transação do check-in, falha injetada na gravação, concorrência entre conexões, reinício | `hospedabem_test` |
+| Integração | `*IT` (54 testes) | Controladores + services + DAOs + PostgreSQL: regras dos 6 UCs, transação do check-in, falha injetada na gravação, concorrência entre conexões, reinício | `hospedabem_test` |
 | Ponta a ponta (E2E) | `TelasE2E` (5 testes) | Telas JavaFX reais operadas como um usuário (`RoboFx`): login, permissões, cadastros, disponibilidade, reserva, check-in com e sem reserva. Confere a tela e o banco. | `hospedabem_test` |
-| Mutação | PIT (`pitest-maven`) | Altera o código de `model` e `controller` e verifica se algum teste falha | `hospedabem_test` |
+| Mutação | PIT (`pitest-maven`) | Altera o código de `model`, `controller` e `service` e verifica se algum teste falha | `hospedabem_test` |
 
 ```bash
 mvn test                      # unitários + integração + E2E (100 testes)
@@ -169,7 +170,7 @@ Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem mon
 
 ## Decisões de implementação e divergências dos artefatos
 
-1. **Spring Boot e MVC.** Usado sem servidor web. As transações ficam nos controladores (`@Transactional`). Os DAOs usam `JdbcTemplate` e compartilham a conexão da transação corrente. Assim, as gravações separadas mostradas no DC (1.7, 1.8 e 1.9) resultam em um único commit ou rollback.
+1. **Spring Boot e MVC.** Usado sem servidor web. As transações ficam nos services (`@Transactional`), chamados pelos controladores. Os DAOs usam `JdbcTemplate` e compartilham a conexão da transação corrente. Assim, as gravações separadas mostradas no DC (1.7, 1.8 e 1.9) resultam em um único commit ou rollback.
 2. **Dinheiro:** `BigDecimal` e `NUMERIC(10,2)`, em vez do `double` do DCP.
 3. **Datas:** `LocalDate` para datas previstas (reserva e saída prevista) e `LocalDateTime` para entrada e saída efetivas. O DCP usa `LocalDateTime` nas datas previstas da reserva, mas os requisitos e o DSS trabalham com datas.
 4. **Situações e perfis** são enums, persistidos como texto com `CHECK` no banco.

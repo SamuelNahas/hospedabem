@@ -1,4 +1,4 @@
-package hospedabem.controller;
+package hospedabem.service;
 
 import org.junit.jupiter.api.Test;
 
