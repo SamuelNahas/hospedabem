@@ -45,11 +45,9 @@ public class TelaPrincipal extends BorderPane {
         Button quartos = item("Quartos", () -> new TelaQuarto(ctx.getBean(ControladorQuarto.class),
                 ctx.getBean(ControladorDisponibilidade.class)));
         Button funcionarios = item("Funcionários", () -> new TelaFuncionario(ctx.getBean(ControladorFuncionario.class)));
-        if (!admin) {
-            for (Button b : List.of(tipos, quartos, funcionarios)) {
         Button itens = item("Itens de consumo e serviços", () -> new TelaItemConsumo(ctx.getBean(ControladorItemConsumo.class)));
         if (!admin) {
-            for (Button b : List.of(tipos, quartos, itens)) {
+            for (Button b : List.of(tipos, quartos, itens, funcionarios)) {
                 b.setDisable(true);
                 b.setTooltip(new Tooltip("Restrito ao administrador (RNF-10)"));
             }
@@ -70,8 +68,7 @@ public class TelaPrincipal extends BorderPane {
         });
 
         VBox barra = new VBox(marca, secaoAtendimento, disponibilidade, reserva, checkIn, secaoCadastros, tipos,
-                quartos, funcionarios, espaco, usuario, sair);
-                quartos, itens, espaco, usuario, sair);
+                quartos, itens, funcionarios, espaco, usuario, sair);
         barra.getStyleClass().add("barra-lateral");
         conteudo.setFitToWidth(true);
         conteudo.getStyleClass().add("conteudo");
