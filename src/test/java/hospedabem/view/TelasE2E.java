@@ -3,6 +3,7 @@ package hospedabem.view;
 import hospedabem.BancoDeTeste;
 import hospedabem.controller.Sessao;
 import hospedabem.dao.InicializadorBanco;
+import javafx.scene.control.ButtonType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -300,7 +301,7 @@ class TelasE2E {
         robo.escreverNoCampoComDica("Matrícula, nome ou CPF", "recep01");
         robo.clicar("Buscar funcionário");
         robo.selecionarLinha(0);
-        robo.clicar("Excluir");
+        robo.clicarEConfirmar("Excluir", ButtonType.YES);
         assertTrue(robo.aviso().contains("não pode ser excluído: há 1 reserva(s)/hospedagem(ns)"), robo.aviso());
         assertEquals("1", consultar("SELECT COUNT(*) FROM reserva WHERE situacao = 'CONFIRMADA'"));
         robo.capturar("funcionario-exclusao-com-vinculo");
