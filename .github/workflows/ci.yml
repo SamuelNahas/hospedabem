@@ -1,0 +1,173 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Preparar Java 17 e cache Maven
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Validar workflows com actionlint
+        run: docker run --rm -v "$GITHUB_WORKSPACE:/repo:ro" --workdir /repo rhysd/actionlint:1.7.12 -color
+
+      - name: Validar fontes e testes Java com Checkstyle
+        run: mvn --batch-mode --no-transfer-progress checkstyle:check
+
+      - name: Salvar relatório de lint
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lint-java
+          path: target/checkstyle-result.xml
+          if-no-files-found: ignore
+          retention-days: 7
+
+  build:
+    name: Build e testes
+    needs: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: hospedabem_test
+          POSTGRES_USER: hospedabem
+          POSTGRES_PASSWORD: hospedabem
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hospedabem -d hospedabem_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      HB_TEST_DB_URL: jdbc:postgresql://localhost:5432/hospedabem_test
+      HB_TEST_DB_USER: hospedabem
+      HB_TEST_DB_PASSWORD: hospedabem
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Preparar Java 17 e cache Maven
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Preparar interface gráfica virtual
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends xvfb xauth libgtk-3-0t64 libasound2t64
+
+      - name: Testes unitários
+        run: mvn --batch-mode --no-transfer-progress clean test -Dtest='*Test'
+
+      - name: Testes de integração
+        run: mvn --batch-mode --no-transfer-progress test -Dtest='*IT'
+
+      - name: Testes de interface JavaFX
+        run: xvfb-run --auto-servernum mvn --batch-mode --no-transfer-progress test -Dtest='*E2E' -Dhb.e2e.capturas=target/e2e-capturas
+
+      - name: Gerar JAR
+        run: mvn --batch-mode --no-transfer-progress -DskipTests package
+
+      - name: Salvar relatórios e capturas dos testes
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: resultados-testes-linux
+          path: |
+            target/surefire-reports/
+            target/e2e-capturas/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Salvar JAR Linux
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: hospedabem-linux-java17
+          path: target/hospedabem.jar
+          if-no-files-found: error
+          retention-days: 7
+
+  mutation:
+    name: Mutação (PIT)
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: hospedabem_test
+          POSTGRES_USER: hospedabem
+          POSTGRES_PASSWORD: hospedabem
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hospedabem -d hospedabem_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      HB_TEST_DB_URL: jdbc:postgresql://localhost:5432/hospedabem_test
+      HB_TEST_DB_USER: hospedabem
+      HB_TEST_DB_PASSWORD: hospedabem
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Preparar Java 17 e cache Maven
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Executar mutação com limite mínimo de 95%
+        run: mvn --batch-mode --no-transfer-progress test-compile org.pitest:pitest-maven:mutationCoverage
+
+      - name: Salvar relatório de mutação
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutacao-pit
+          path: target/pit-reports/
+          if-no-files-found: ignore
+          retention-days: 7

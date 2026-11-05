@@ -8,6 +8,9 @@ import javafx.scene.control.ButtonBase;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.DialogPane;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableView;
@@ -169,6 +172,21 @@ final class RoboFx {
             }
         }
         return false;
+    }
+
+    /** Responde ao diálogo modal na thread gráfica e aguarda a operação resultante terminar. */
+    void clicarConfirmando(String texto, ButtonType resposta) {
+        naFx(() -> {
+            Platform.runLater(() -> {
+                DialogPane dialogo = Window.getWindows().stream().filter(Window::isShowing)
+                        .map(janela -> janela.getScene().getRoot()).filter(DialogPane.class::isInstance)
+                        .map(DialogPane.class::cast).findFirst().orElseThrow();
+                ((Button) dialogo.lookupButton(resposta)).fire();
+            });
+            botao(texto).fire();
+            return null;
+        });
+        aguardar();
     }
 
     boolean desabilitado(String texto) {

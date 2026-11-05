@@ -2,6 +2,8 @@ package hospedabem.view;
 
 import hospedabem.BancoDeTeste;
 import hospedabem.controller.Sessao;
+import hospedabem.controller.ControladorItemConsumo;
+import javafx.scene.control.ButtonType;
 import hospedabem.dao.InicializadorBanco;
 import javafx.scene.control.ButtonType;
 import org.junit.jupiter.api.AfterEach;
@@ -74,6 +76,7 @@ class TelasE2E {
         assertTrue(robo.desabilitado("Tipos de quarto"));
         assertTrue(robo.desabilitado("Quartos"));
         assertTrue(robo.desabilitado("Funcionários"));
+        assertTrue(robo.desabilitado("Itens de consumo e serviços"));
         robo.capturar("recepcionista-sem-cadastros");
 
         robo.clicar("Sair");
@@ -124,6 +127,51 @@ class TelasE2E {
 
         assertEquals("FAM", consultar("SELECT t.codigo FROM quarto q JOIN tipo_quarto t ON t.id = q.tipo_quarto_id "
                 + "WHERE q.numero = 401"));
+    }
+
+    /** Confere pela tela validação, cadastro, busca, alteração e cancelamento ou confirmação da exclusão. */
+    @Test
+    void administradorGerenciaItensDeConsumoPelaTela() {
+        entrar("admin01", "Admin@123");
+        robo.clicar("Itens de consumo e serviços");
+        robo.clicar("Excluir");
+        assertEquals("Selecione um item na lista.", robo.aviso());
+        robo.escrever("Código", "AGUA");
+        robo.escrever("Descrição", "Água mineral");
+        robo.escrever("Categoria", "Frigobar");
+        robo.escrever("Preço (R$)", "invalido");
+        robo.clicar("Salvar");
+        assertTrue(robo.aviso().startsWith("Preço inválido."));
+        robo.escrever("Preço (R$)", "0");
+        robo.clicar("Salvar");
+        assertEquals("Preço deve ser positivo.", robo.aviso());
+        robo.escrever("Preço (R$)", "5,50");
+        robo.clicar("Salvar");
+        assertEquals("Item AGUA gravado.", robo.aviso());
+        assertEquals(1, robo.linhasDaTabela());
+        robo.escrever("Código", "agua");
+        robo.escrever("Descrição", "Duplicado");
+        robo.escrever("Categoria", "Frigobar");
+        robo.escrever("Preço (R$)", "7");
+        robo.clicar("Salvar");
+        assertEquals("Já existe item com o código AGUA.", robo.aviso());
+        robo.clicar("Buscar por código");
+        robo.escrever("Descrição", "Água com gás");
+        robo.escrever("Preço (R$)", "6.25");
+        robo.clicar("Salvar");
+        assertEquals("Item AGUA gravado.", robo.aviso());
+        assertEquals(new java.math.BigDecimal("6.25"),
+                contexto.getBean(ControladorItemConsumo.class).buscar("AGUA").orElseThrow().preco());
+        robo.selecionarLinha(0);
+        robo.capturar("itens-de-consumo");
+        robo.clicarConfirmando("Excluir", ButtonType.NO);
+        assertEquals(1, robo.linhasDaTabela());
+        robo.clicarConfirmando("Excluir", ButtonType.YES);
+        assertEquals("Item AGUA excluído.", robo.aviso());
+        assertEquals(0, robo.linhasDaTabela());
+        robo.escrever("Código", "NAOEXISTE");
+        robo.clicar("Buscar por código");
+        assertEquals("Nenhum item com o código NAOEXISTE.", robo.aviso());
     }
 
     @Test
