@@ -27,4 +27,26 @@ class PoliticaDeSenhaTest {
         assertThrows(NegocioException.class, () -> PoliticaDeSenha.exigirValida("@@@@@@@@".toCharArray()));
         PoliticaDeSenha.exigirValida("Marta@2026".toCharArray());
     }
+
+    @Test
+    void senhaVenceExatamenteAoCompletarNoventaDiasOuSeForProvisoria() {
+        java.time.LocalDateTime troca = java.time.LocalDateTime.of(2026, 1, 1, 10, 0);
+        java.time.LocalDateTime limite = troca.plusDays(PoliticaDeSenha.VALIDADE_EM_DIAS);
+        org.junit.jupiter.api.Assertions.assertFalse(PoliticaDeSenha.estaVencida(troca, false, limite.minusSeconds(1)));
+        org.junit.jupiter.api.Assertions.assertTrue(PoliticaDeSenha.estaVencida(troca, false, limite));
+        org.junit.jupiter.api.Assertions.assertTrue(PoliticaDeSenha.estaVencida(troca, true, troca));
+    }
+
+    @Test
+    void trocaExigeConfirmacaoIgualSenhaValidaEDiferenteDaAtual() {
+        assertThrows(NegocioException.class, () -> PoliticaDeSenha.exigirTroca("".toCharArray(),
+                "Nova12345".toCharArray(), "Nova12345".toCharArray()));
+        assertThrows(NegocioException.class, () -> PoliticaDeSenha.exigirTroca("Atual123".toCharArray(),
+                "Nova12345".toCharArray(), "Nova12346".toCharArray()));
+        assertThrows(NegocioException.class, () -> PoliticaDeSenha.exigirTroca("Atual123".toCharArray(),
+                "curta1".toCharArray(), "curta1".toCharArray()));
+        assertThrows(NegocioException.class, () -> PoliticaDeSenha.exigirTroca("Atual123".toCharArray(),
+                "Atual123".toCharArray(), "Atual123".toCharArray()));
+        PoliticaDeSenha.exigirTroca("Atual123".toCharArray(), "Nova12345".toCharArray(), "Nova12345".toCharArray());
+    }
 }
