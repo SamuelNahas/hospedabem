@@ -6,6 +6,9 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.ButtonBase;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.DialogPane;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableView;
@@ -14,6 +17,7 @@ import javafx.scene.control.TextInputControl;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -114,6 +118,21 @@ final class RoboFx {
             ButtonBase botao = botao(texto);
             if (botao.isDisabled()) throw new AssertionError("Botão desabilitado: " + texto);
             botao.fire();
+            return null;
+        });
+        aguardar();
+    }
+
+    /** Responde ao diálogo modal na thread gráfica e aguarda a operação resultante terminar. */
+    void clicarConfirmando(String texto, ButtonType resposta) {
+        naFx(() -> {
+            Platform.runLater(() -> {
+                DialogPane dialogo = Window.getWindows().stream().filter(Window::isShowing)
+                        .map(janela -> janela.getScene().getRoot()).filter(DialogPane.class::isInstance)
+                        .map(DialogPane.class::cast).findFirst().orElseThrow();
+                ((Button) dialogo.lookupButton(resposta)).fire();
+            });
+            botao(texto).fire();
             return null;
         });
         aguardar();
