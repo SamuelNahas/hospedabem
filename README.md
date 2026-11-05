@@ -4,6 +4,8 @@ Sistema desktop de hospedagem em hotéis. Trabalho de Análise e Projeto de Soft
 
 **Grupo N:** Felipe de Souza Rosa, Ruan Sartório Thomaz e Samuel Vieira da Cunha Nahas.
 
+Para colaborar no repositório, consulte o [tutorial básico de GitHub do grupo](docs/tutorial-github.md): assumir tarefas, usar o board, criar branches e abrir Pull Requests.
+
 Esta iteração implementa os seis casos de uso alocados na listagem de casos de uso (atividade D):
 
 | UC | Caso de uso | Perfis |
