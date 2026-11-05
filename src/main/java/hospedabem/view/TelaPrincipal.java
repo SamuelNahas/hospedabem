@@ -6,6 +6,7 @@ import hospedabem.controller.ControladorDisponibilidade;
 import hospedabem.controller.ControladorQuarto;
 import hospedabem.controller.ControladorReserva;
 import hospedabem.controller.ControladorTipoQuarto;
+import hospedabem.controller.ControladorItemConsumo;
 import hospedabem.model.Funcionario;
 import hospedabem.model.Perfil;
 import javafx.geometry.Insets;
@@ -28,6 +29,7 @@ public class TelaPrincipal extends BorderPane {
     private final VBox area = new VBox();
     private final List<Button> navegacao = new ArrayList<>();
 
+    /** Monta a navegação da sessão e desabilita os cadastros administrativos para recepcionistas. */
     public TelaPrincipal(ConfigurableApplicationContext ctx, Funcionario funcionario) {
         boolean admin = funcionario.perfil() == Perfil.ADMINISTRADOR;
         Label marca = new Label("HospedaBem");
@@ -41,8 +43,9 @@ public class TelaPrincipal extends BorderPane {
         Button tipos = item("Tipos de quarto", () -> new TelaTipoQuarto(ctx.getBean(ControladorTipoQuarto.class)));
         Button quartos = item("Quartos", () -> new TelaQuarto(ctx.getBean(ControladorQuarto.class),
                 ctx.getBean(ControladorDisponibilidade.class)));
+        Button itens = item("Itens de consumo e serviços", () -> new TelaItemConsumo(ctx.getBean(ControladorItemConsumo.class)));
         if (!admin) {
-            for (Button b : List.of(tipos, quartos)) {
+            for (Button b : List.of(tipos, quartos, itens)) {
                 b.setDisable(true);
                 b.setTooltip(new Tooltip("Restrito ao administrador (RF-3)"));
             }
@@ -63,7 +66,7 @@ public class TelaPrincipal extends BorderPane {
         });
 
         VBox barra = new VBox(marca, secaoAtendimento, disponibilidade, reserva, checkIn, secaoCadastros, tipos,
-                quartos, espaco, usuario, sair);
+                quartos, itens, espaco, usuario, sair);
         barra.getStyleClass().add("barra-lateral");
         conteudo.setFitToWidth(true);
         conteudo.getStyleClass().add("conteudo");
