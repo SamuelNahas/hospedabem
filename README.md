@@ -185,6 +185,18 @@ Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem mon
 - A primeira rodada do PIT (80%) revelou lacunas reais, cobertas depois por testes: etapas do check-in fora de ordem, manutenção do quarto após o resumo com folga no tipo, reserva ou quarto apagados antes da confirmação, capacidade exatamente no limite e senha não apagada da memória. Revelou também duas pré-checagens de duplicidade redundantes com a restrição `UNIQUE` do banco, que foram removidas. Depois da separação das regras no `model`, a mutação apontou mais uma lacuna, já coberta: check-in sem reserva quando a última vaga do tipo pertence à reserva de outro hóspede. Com a criação da camada `service`, apontou `ControladorReserva.buscarResponsavel` sem teste, coberto por `ReservaIT.buscarResponsavelRetornaOHospedeCadastrado`.
 - Os E2E encontraram um problema de interface: o item do menu e o botão da página de reserva tinham o mesmo texto. O botão passou a se chamar "Confirmar reserva". As capturas estão em `docs/telas`.
 
+## Pipeline dos Pull Requests
+
+O workflow [CI](.github/workflows/ci.yml) executa automaticamente nos PRs destinados à `main` e nos pushes para a `main`. Depois que estiver integrado, também poderá ser iniciado manualmente pela aba **Actions → CI → Run workflow**.
+
+A verificação **Build e testes** usa Ubuntu 24.04, Java 17, cache Maven e um PostgreSQL 17 temporário com o banco `hospedabem_test`. O comando `mvn clean verify` compila, executa os testes unitários, de integração e das telas JavaFX, e gera o JAR. As telas rodam em uma sessão gráfica virtual com Xvfb. Não são necessários secrets: as credenciais declaradas no workflow pertencem somente ao banco temporário da execução.
+
+Para acompanhar, abra o PR e consulte **Checks**, ou vá à aba **Actions** do repositório. Na página da execução, a seção **Artifacts** disponibiliza os relatórios e capturas dos testes, inclusive quando os testes falham. Em execuções bem-sucedidas, também fica disponível o artefato `hospedabem-linux-java17`, com `hospedabem.jar`. Os arquivos são mantidos por sete dias.
+
+O JAR gerado inclui os componentes nativos do JavaFX para **Linux**; para Windows ou macOS, faça o build no respectivo sistema conforme as instruções de execução. A entrega automatizada nesta pipeline é o artefato para download, sem deploy em servidor. O PIT continua sendo executado pelo comando separado de mutação.
+
+O resultado aparece no PR. Para tornar sua aprovação obrigatória antes do merge, configure uma regra de proteção da `main` exigindo a verificação **Build e testes**.
+
 ## Verificação: casos de uso × telas × testes
 
 | UC | Tela | Controlador | Testes |
