@@ -1,4 +1,4 @@
-# HospedaBem — Iteração 1
+# HospedaBem
 
 Sistema desktop de hospedagem em hotéis. Trabalho de Análise e Projeto de Software Orientado a Objetos (FACOM/UFMS).
 
@@ -6,7 +6,7 @@ Sistema desktop de hospedagem em hotéis. Trabalho de Análise e Projeto de Soft
 
 Para colaborar no repositório, consulte o [tutorial básico de GitHub do grupo](docs/tutorial-github.md): assumir tarefas, usar o board, criar branches e abrir Pull Requests.
 
-Esta iteração implementa os seis casos de uso alocados na listagem de casos de uso (atividade D):
+A base da iteração 1 implementa os seis casos de uso alocados na listagem de casos de uso (atividade D):
 
 | UC | Caso de uso | Perfis |
 |----|-------------|--------|
@@ -18,6 +18,18 @@ Esta iteração implementa os seis casos de uso alocados na listagem de casos de
 | UC10 | Realizar Check-in, com e sem reserva | administrador, recepcionista |
 
 Ficam para as próximas iterações: cadastro de hóspedes (UC06) e de funcionários, alteração e cancelamento de reservas (UC09), consumos, check-out, pagamentos, comprovantes e relatórios. O menu só mostra o que foi implementado.
+
+## Iteração 2 — UC05: itens de consumo e serviços
+
+O administrador acessa **Cadastros → Itens de consumo e serviços** para incluir, listar, buscar por código, alterar e excluir itens. Código, descrição, categoria e preço são obrigatórios. A categoria é livre (por exemplo, frigobar, restaurante ou lavanderia). A permissão também é conferida no controlador; recepcionistas e chamadas sem sessão não podem acessar o catálogo por esse cadastro.
+
+Decisão da equipe para o RF-11: preço **maior que zero**, até R$ 99.999.999,99, sem arredondamento de frações de centavo. `10`, `10,50` e `10.50` são aceitos; `10,501` é recusado. O código é normalizado para maiúsculas e limitado a 20 caracteres; descrição e categoria têm limites de 120 e 80 caracteres.
+
+Na inicialização, `db/migracoes/002_itens_consumo.sql` é aplicado tanto a bancos novos quanto aos da iteração 1, sem apagar ou recarregar dados existentes. Para preparação manual, execute esse arquivo depois do esquema base. O script é idempotente e a inicialização é transacional, com bloqueio no PostgreSQL para serializar atualizações simultâneas entre estações.
+
+A tabela `consumo` prepara a integração com o UC11: cada lançamento referencia uma conta e um item e preserva o preço unitário aplicado. Alterar o preço do catálogo não recalcula lançamentos antigos; excluir um item referenciado é recusado. **A tela e a operação de lançar consumo pertencem ao UC11 e ainda não estão implementadas.** Os testes criam lançamentos fictícios diretamente no PostgreSQL para verificar essa proteção.
+
+O UC05 segue as mesmas camadas dos demais cadastros: `ItemConsumo`, `ItemConsumoDAO`, `ServicoItemConsumo`, `ControladorItemConsumo` e `TelaItemConsumo`. Os testes focados podem ser executados com `mvn test -Dtest=ItemConsumoIT` e `mvn test -Dtest='TelasE2E#administradorGerenciaItensDeConsumoPelaTela'`; ambos usam exclusivamente `hospedabem_test`.
 
 ## Tecnologia e organização (MVC)
 
@@ -160,12 +172,12 @@ Há quatro níveis de teste. Todos rodam com `mvn test`, exceto a mutação, que
 | Nível | Arquivos | O que cobre | Banco |
 |---|---|---|---|
 | Unitário | `*Test` (41 testes) | Todas as regras do `model` (`Atendimento`, `Quarto`, `Reserva`, `SolicitacaoReserva`, `TipoQuarto`, `Periodo`, `Ocupacao`, `Disponibilidade`), `Sessao`, hash de senha, mensagens de erro, conversão de campos | não usa |
-| Integração | `*IT` (55 testes) | Controladores + services + DAOs + PostgreSQL: regras dos 6 UCs, transação do check-in, falha injetada na gravação, concorrência entre conexões, reinício | `hospedabem_test` |
-| Ponta a ponta (E2E) | `TelasE2E` (6 testes) | Telas JavaFX reais operadas como um usuário (`RoboFx`): login, permissões, cadastros, disponibilidade, reserva, check-in com e sem reserva. Confere a tela e o banco. | `hospedabem_test` |
+| Integração | `*IT` (65 testes) | Controladores + services + DAOs + PostgreSQL: regras dos 7 UCs, histórico de consumos, migração, transação do check-in, falha injetada na gravação, concorrência entre conexões, reinício | `hospedabem_test` |
+| Ponta a ponta (E2E) | `TelasE2E` (7 testes) | Telas JavaFX reais operadas como um usuário (`RoboFx`): login, permissões, cadastros (incluindo UC05), disponibilidade, reserva, check-in com e sem reserva. Confere a tela e o banco. | `hospedabem_test` |
 | Mutação | PIT (`pitest-maven`) | Altera o código de `model`, `controller` e `service` e verifica se algum teste falha | `hospedabem_test` |
 
 ```bash
-mvn test                      # unitários + integração + E2E (102 testes)
+mvn test                      # unitários + integração + E2E (113 testes)
 mvn test -Dtest='*Test'       # somente unitários, sem banco
 mvn test -Dtest='TelasE2E' -Dhb.e2e.capturas=docs/telas   # E2E salvando a captura de cada passo
 mvn test-compile org.pitest:pitest-maven:mutationCoverage  # mutação; relatório em target/pit-reports/index.html
@@ -175,7 +187,11 @@ Os testes de integração e E2E recriam o esquema **somente do banco de teste**.
 
 Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem monitor, use `xvfb-run mvn test`. A mutação roda numa única thread, porque os testes compartilham o banco de teste.
 
-### Resultado verificado em 03/11/2026 (OpenJDK 27 com `--release 17`, PostgreSQL 17)
+### Resultado do UC05 verificado em 05/11/2026
+
+`mvn test`: **113 testes, 0 falhas, 0 erros, 0 ignorados** (41 unitários, 65 de integração e 7 E2E), com OpenJDK 27, compilação para Java 17 e PostgreSQL 17. Inclui regressões da normalização de código e da migração simultânea entre estações. A captura da tela foi conferida visualmente. A mutação não foi reexecutada nesta entrega; a medição abaixo é da iteração 1.
+
+### Resultado da iteração 1 verificado em 03/11/2026 (OpenJDK 27 com `--release 17`, PostgreSQL 17)
 
 - `mvn package`: **102 testes, 0 falhas, 0 erros** (41 unitários, 55 de integração, 6 E2E).
 - Mutação (PIT 1.17.4): **234 mutantes, 228 mortos (97%)**, nenhum sem cobertura, força de teste de 97%. O build exige no mínimo 95% (`mutationThreshold`). Os 6 sobreviventes são equivalentes ou inobserváveis em teste:
@@ -192,6 +208,7 @@ Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem mon
 | UC01 | `TelaLogin`, `TelaPrincipal` (itens de cadastro desabilitados para a recepcionista) | `ControladorAutenticacao`, `Sessao` | `AutenticacaoIT` (login correto, senha incorreta, matrícula inexistente, chamadas diretas sem sessão e sem perfil, hash PBKDF2, senha apagada da memória), `SenhaTest`, `SessaoTest`, `TelasE2E` |
 | UC03 | `TelaTipoQuarto` | `ControladorTipoQuarto` | `TelasE2E`, `DominioTest`, `CadastroIT`: inclusão/busca/alteração/exclusão, código duplicado, valores inválidos, exclusão com quarto ou reserva, redução de capacidade abaixo de reserva |
 | UC04 | `TelaQuarto` | `ControladorQuarto` | `TelasE2E`, `DominioTest`, `CadastroIT`: número duplicado, tipo inexistente, ocupado/reservado pelo cadastro, RN-Q04 (hospedagem ativa), RN-Q05 (manutenção/troca de tipo/exclusão inviabilizando reserva, com dados preservados), RN-Q06 (histórico) |
+| UC05 | `TelaItemConsumo` | `ControladorItemConsumo` | `ItemConsumoIT`, `TelasE2E`: CRUD, normalização, duplicidade, campos e preço, autorização, item inexistente, histórico de consumo, migração e reinício |
 | UC07 | `TelaDisponibilidade` | `ControladorDisponibilidade`, `ServicoDisponibilidade` | `TelasE2E`, `OcupacaoTest` (período inválido, sobreposição, adjacência, reservas que não se sobrepõem entre si); `DisponibilidadeIT` (manutenção, convertida não contada duas vezes, cancelada, hospedagem atrasada) |
 | UC08 | `TelaReserva` | `ControladorReserva` | `TelasE2E`, `ReservaIT` (válida com funcionário da sessão, capacidade, indisponibilidade, responsável/tipo/período inválidos); `ConcorrenciaIT` (última vaga) |
 | UC10 | `TelaCheckIn` (4 etapas em cartões, a última com a confirmação) | `ControladorCheckIn` | `TelasE2E` (com e sem reserva, pela tela); `DominioTest`; `CheckInIT` (etapas fora de ordem, reserva ou quarto apagados, pós-condições do contrato, sem reserva, reserva inexistente/convertida/cancelada/futura, hóspede inexistente/duplicado/excesso, responsável ausente, sem quarto, reserva alterada ou cancelada após o resumo, quarto ocupado ou em manutenção após o resumo, falha na gravação sem resultado parcial, unicidade no banco); `ConcorrenciaIT` (mesmo quarto, check-in × reserva); `PersistenciaIT` (reinício) |
