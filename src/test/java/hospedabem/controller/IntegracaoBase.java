@@ -9,6 +9,7 @@ import hospedabem.model.Perfil;
 import hospedabem.model.Quarto;
 import hospedabem.model.SituacaoQuarto;
 import hospedabem.model.TipoQuarto;
+import hospedabem.service.ServicoFuncionario;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +19,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Optional;
 
 /** Testes de integração contra o PostgreSQL de teste (application-test.properties). */
 @SpringBootTest
@@ -35,6 +37,8 @@ abstract class IntegracaoBase {
     @Autowired InicializadorBanco inicializador;
     @Autowired ControladorAutenticacao autenticacao;
     @Autowired ControladorFuncionario funcionarios;
+    // Usado só onde duas sessões simultâneas são necessárias: a Sessao é única por aplicação.
+    @Autowired ServicoFuncionario servicoFuncionario;
     @Autowired ControladorTipoQuarto tipos;
     @Autowired ControladorQuarto quartos;
     @Autowired ControladorDisponibilidade disponibilidade;
@@ -53,8 +57,18 @@ abstract class IntegracaoBase {
 
     /** Funcionário válido com os campos obrigatórios; o id 0 indica inclusão. */
     Funcionario novoFuncionario(String matricula, String cpf, Perfil perfil) {
-        return new Funcionario(0, matricula, cpf, "Marta Teste " + matricula, "Rua Fictícia, 1", "Campo Grande",
-                "MS", "(67) 90000-0009", matricula + "@exemplo.test", HOJE.minusYears(1), perfil);
+        return Funcionario.informado(0, matricula, cpf, "Marta Teste " + matricula, "Rua Fictícia, 1",
+                "Campo Grande", "MS", "(67) 90000-0009", matricula + "@exemplo.test", HOJE.minusYears(1), perfil);
+    }
+
+    /** Funcionário de matrícula exata, pela mesma busca que a tela usa. */
+    Funcionario funcionario(String matricula) {
+        return acharFuncionario(matricula).orElseThrow();
+    }
+
+    Optional<Funcionario> acharFuncionario(String matricula) {
+        String m = matricula.trim().toLowerCase();
+        return funcionarios.procurar(m).stream().filter(f -> f.matricula().equals(m)).findFirst();
     }
 
     TipoQuarto criarTipo(String codigo, int capacidade) {
