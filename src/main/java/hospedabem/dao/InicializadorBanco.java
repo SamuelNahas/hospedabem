@@ -17,14 +17,20 @@ public class InicializadorBanco {
         this.demonstracao = demonstracao;
     }
 
+    /** Cria a carga somente em banco vazio e aplica migrações, serializando o DDL entre estações. */
     @Transactional
     public boolean inicializarSeVazio() {
-        if (Boolean.TRUE.equals(jdbc.queryForObject("SELECT to_regclass('public.funcionario') IS NOT NULL", Boolean.class)))
-            return false;
-        executar("db/schema.sql");
-        executar("db/seed.sql");
-        if (demonstracao) executar("db/demo.sql");
-        return true;
+        // Serializa o DDL entre estações; o bloqueio é liberado no commit ou rollback.
+        jdbc.execute("SELECT pg_advisory_xact_lock(hashtext('hospedabem.inicializacao'))");
+        boolean vazio = !Boolean.TRUE.equals(jdbc.queryForObject(
+                "SELECT to_regclass('public.funcionario') IS NOT NULL", Boolean.class));
+        if (vazio) {
+            executar("db/schema.sql");
+            executar("db/seed.sql");
+            if (demonstracao) executar("db/demo.sql");
+        }
+        executar("db/migracoes/002_itens_consumo.sql");
+        return vazio;
     }
 
     public void executar(String script) {

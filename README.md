@@ -20,6 +20,18 @@ A iteração 1 implementou os seis casos de uso alocados na listagem de casos de
 
 Ficam para as próximas iterações: cadastro de hóspedes (UC06), alteração e cancelamento de reservas (UC09), consumos, check-out, pagamentos, comprovantes e relatórios, e a troca periódica de senha pelo próprio funcionário (RNF-8), que parte do UC02. O menu só mostra o que foi implementado.
 
+## Iteração 2 — UC05: itens de consumo e serviços
+
+O administrador acessa **Cadastros → Itens de consumo e serviços** para incluir, listar, buscar por código, alterar e excluir itens. Código, descrição, categoria e preço são obrigatórios. A categoria é livre (por exemplo, frigobar, restaurante ou lavanderia). A permissão também é conferida no controlador; recepcionistas e chamadas sem sessão não podem acessar o catálogo por esse cadastro.
+
+Decisão da equipe para o RF-11: preço **maior que zero**, até R$ 99.999.999,99, sem arredondamento de frações de centavo. `10`, `10,50` e `10.50` são aceitos; `10,501` é recusado. O código é normalizado para maiúsculas e limitado a 20 caracteres; descrição e categoria têm limites de 120 e 80 caracteres.
+
+Na inicialização, `db/migracoes/002_itens_consumo.sql` é aplicado tanto a bancos novos quanto aos da iteração 1, sem apagar ou recarregar dados existentes. Para preparação manual, execute esse arquivo depois do esquema base. O script é idempotente e a inicialização é transacional, com bloqueio no PostgreSQL para serializar atualizações simultâneas entre estações.
+
+A tabela `consumo` prepara a integração com o UC11: cada lançamento referencia uma conta e um item e preserva o preço unitário aplicado. Alterar o preço do catálogo não recalcula lançamentos antigos; excluir um item referenciado é recusado. **A tela e a operação de lançar consumo pertencem ao UC11 e ainda não estão implementadas.** Os testes criam lançamentos fictícios diretamente no PostgreSQL para verificar essa proteção.
+
+O UC05 segue as mesmas camadas dos demais cadastros: `ItemConsumo`, `ItemConsumoDAO`, `ServicoItemConsumo`, `ControladorItemConsumo` e `TelaItemConsumo`. Os testes focados podem ser executados com `mvn test -Dtest=ItemConsumoIT` e `mvn test -Dtest='TelasE2E#administradorGerenciaItensDeConsumoPelaTela'`; ambos usam exclusivamente `hospedabem_test`.
+
 ## Tecnologia e organização (MVC)
 
 Java 17+, **JavaFX 21 com CSS**, Spring Boot 3.4 **sem servidor web** (`spring.main.web-application-type=none`), Spring JDBC (`JdbcTemplate`, HikariCP, `@Transactional`), PostgreSQL, Maven e JUnit 5.
@@ -199,6 +211,42 @@ Nenhum mutante ficou sem cobertura. O build exige no mínimo 95% (`mutationThres
 - Depois da revisão do UC02, a mutação mostrou que as duas pré-checagens de duplicidade do `ServicoFuncionario` podiam ser removidas sem nenhum teste falhar: com a tradução da violação do `UNIQUE` já implementada, a mensagem é a mesma pelos dois caminhos. As pré-checagens foram removidas, como já havia acontecido com as dos outros cadastros na iteração 1 (decisão 23).
 - Os E2E encontraram um problema de interface: o item do menu e o botão da página de reserva tinham o mesmo texto. O botão passou a se chamar "Confirmar reserva". As capturas estão em `docs/telas`.
 
+## Pipeline dos Pull Requests
+
+O workflow [CI](.github/workflows/ci.yml) executa automaticamente nos PRs destinados à `main` e nos pushes para a `main`. Depois que estiver integrado, também poderá ser iniciado manualmente pela aba **Actions → CI → Run workflow**.
+
+As verificações usam Ubuntu 24.04, Java 17 e cache Maven, nesta ordem:
+
+| Check | Verificações |
+|---|---|
+| **Lint** | actionlint 1.7.12 valida os workflows; Checkstyle valida os fontes e testes Java. |
+| **Build e testes** | Etapas separadas para unitários (`*Test`), integração (`*IT`) e interface JavaFX (`*E2E`), seguidas da geração do JAR. |
+| **Mutação (PIT)** | Executa os testes contra mutações do domínio, controladores e serviços. Falha se a pontuação ficar abaixo de **95%**, conforme o `pom.xml`. |
+
+Os testes e a mutação usam bancos PostgreSQL 17 temporários e isolados por job, sempre chamados `hospedabem_test`. As telas rodam em uma sessão gráfica virtual com Xvfb. O PIT exclui os E2E e usa uma única thread para não disputar o banco entre mutantes. Não são necessários secrets: as credenciais declaradas no workflow pertencem somente aos bancos temporários da execução.
+
+O lint Java verifica imports não utilizados ou redundantes, instruções vazias, correspondência entre classe e arquivo, tabulações, espaços no final da linha e quebra de linha final. As regras estão em [config/checkstyle.xml](config/checkstyle.xml); violações falham o build. O Checkstyle também roda na fase `validate` do Maven, portanto vale para os comandos locais de build e testes.
+
+Para executar as mesmas verificações localmente, com o banco de teste disponível e uma sessão gráfica para os E2E:
+
+```bash
+actionlint .github/workflows/ci.yml
+mvn checkstyle:check
+mvn clean test -Dtest='*Test'
+mvn test -Dtest='*IT'
+mvn test -Dtest='*E2E' -Dhb.e2e.capturas=target/e2e-capturas
+mvn -DskipTests package
+mvn test-compile org.pitest:pitest-maven:mutationCoverage
+```
+
+Em Linux sem monitor, execute o comando dos E2E com o prefixo `xvfb-run --auto-servernum`. Não execute os testes de integração e a mutação simultaneamente contra o mesmo banco.
+
+Para acompanhar, abra o PR e consulte **Checks**, ou vá à aba **Actions** do repositório. Na página da execução, a seção **Artifacts** disponibiliza `lint-java`, `resultados-testes-linux` (relatórios e capturas) e `mutacao-pit` (HTML e XML), inclusive quando a respectiva verificação falha e há arquivos gerados. Quando o build passa, também fica disponível `hospedabem-linux-java17`, com `hospedabem.jar`. Os arquivos são mantidos por sete dias.
+
+O JAR gerado inclui os componentes nativos do JavaFX para **Linux**; para Windows ou macOS, faça o build no respectivo sistema conforme as instruções de execução. A entrega automatizada nesta pipeline é o artefato para download, sem deploy em servidor. A execução só fica aprovada quando os três checks passam; não há `continue-on-error` nem redução do limite de mutação no workflow.
+
+O resultado aparece no PR. Para tornar sua aprovação obrigatória antes do merge, configure uma regra de proteção da `main` exigindo **Lint**, **Build e testes** e **Mutação (PIT)**.
+
 ## Verificação: casos de uso × telas × testes
 
 | UC | Tela | Controlador | Testes |
@@ -207,6 +255,7 @@ Nenhum mutante ficou sem cobertura. O build exige no mínimo 95% (`mutationThres
 | UC02 | `TelaFuncionario` (lista, busca por matrícula/nome/CPF, formulário com perfil e senha inicial) | `ControladorFuncionario`, `ServicoFuncionario` | `FuncionarioTest` (campos obrigatórios, CPF com dígitos verificadores, UF, telefone, e-mail, autoexclusão, rebaixamento do próprio perfil), `PoliticaDeSenhaTest`; `ServicoFuncionarioTest` (tradução da violação do `UNIQUE` em gravações simultâneas); `FuncionarioIT` (inclusão/listagem/busca/alteração/exclusão, matrícula e CPF duplicados na inclusão e na alteração com dados preservados, acesso de recepcionista e sem sessão em todas as operações, delegação do perfil de administrador, autoexclusão, auto-rebaixamento, sessão rebaixada ou excluída por outra estação, matrícula em qualquer caixa no login, linha fora do formato antigo ainda listada e autenticando, campo maior que a coluna, exclusão com reserva e com hospedagem, somente hash gravado, login do funcionário criado, redefinição de senha, senha apagada da memória, persistência após reinício); `ConcorrenciaIT` (dois administradores se rebaixando ao mesmo tempo); `TelasE2E` (cadastro com a data já preenchida, duplicidade, delegação de perfil, recusa de senha no "Salvar", impedimento de exclusão e login do recém-cadastrado) |
 | UC03 | `TelaTipoQuarto` | `ControladorTipoQuarto` | `TelasE2E`, `DominioTest`, `CadastroIT`: inclusão/busca/alteração/exclusão, código duplicado, valores inválidos, exclusão com quarto ou reserva, redução de capacidade abaixo de reserva |
 | UC04 | `TelaQuarto` | `ControladorQuarto` | `TelasE2E`, `DominioTest`, `CadastroIT`: número duplicado, tipo inexistente, ocupado/reservado pelo cadastro, RN-Q04 (hospedagem ativa), RN-Q05 (manutenção/troca de tipo/exclusão inviabilizando reserva, com dados preservados), RN-Q06 (histórico) |
+| UC05 | `TelaItemConsumo` | `ControladorItemConsumo` | `ItemConsumoIT`, `TelasE2E`: CRUD, normalização, duplicidade, campos e preço, autorização, item inexistente, histórico de consumo, migração e reinício |
 | UC07 | `TelaDisponibilidade` | `ControladorDisponibilidade`, `ServicoDisponibilidade` | `TelasE2E`, `OcupacaoTest` (período inválido, sobreposição, adjacência, reservas que não se sobrepõem entre si); `DisponibilidadeIT` (manutenção, convertida não contada duas vezes, cancelada, hospedagem atrasada) |
 | UC08 | `TelaReserva` | `ControladorReserva` | `TelasE2E`, `ReservaIT` (válida com funcionário da sessão, capacidade, indisponibilidade, responsável/tipo/período inválidos); `ConcorrenciaIT` (última vaga) |
 | UC10 | `TelaCheckIn` (4 etapas em cartões, a última com a confirmação) | `ControladorCheckIn` | `TelasE2E` (com e sem reserva, pela tela); `DominioTest`; `CheckInIT` (etapas fora de ordem, reserva ou quarto apagados, pós-condições do contrato, sem reserva, reserva inexistente/convertida/cancelada/futura, hóspede inexistente/duplicado/excesso, responsável ausente, sem quarto, reserva alterada ou cancelada após o resumo, quarto ocupado ou em manutenção após o resumo, falha na gravação sem resultado parcial, unicidade no banco); `ConcorrenciaIT` (mesmo quarto, check-in × reserva); `PersistenciaIT` (reinício) |
