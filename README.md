@@ -189,13 +189,37 @@ Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem mon
 
 O workflow [CI](.github/workflows/ci.yml) executa automaticamente nos PRs destinados à `main` e nos pushes para a `main`. Depois que estiver integrado, também poderá ser iniciado manualmente pela aba **Actions → CI → Run workflow**.
 
-A verificação **Build e testes** usa Ubuntu 24.04, Java 17, cache Maven e um PostgreSQL 17 temporário com o banco `hospedabem_test`. O comando `mvn clean verify` compila, executa os testes unitários, de integração e das telas JavaFX, e gera o JAR. As telas rodam em uma sessão gráfica virtual com Xvfb. Não são necessários secrets: as credenciais declaradas no workflow pertencem somente ao banco temporário da execução.
+As verificações usam Ubuntu 24.04, Java 17 e cache Maven, nesta ordem:
 
-Para acompanhar, abra o PR e consulte **Checks**, ou vá à aba **Actions** do repositório. Na página da execução, a seção **Artifacts** disponibiliza os relatórios e capturas dos testes, inclusive quando os testes falham. Em execuções bem-sucedidas, também fica disponível o artefato `hospedabem-linux-java17`, com `hospedabem.jar`. Os arquivos são mantidos por sete dias.
+| Check | Verificações |
+|---|---|
+| **Lint** | actionlint 1.7.12 valida os workflows; Checkstyle valida os fontes e testes Java. |
+| **Build e testes** | Etapas separadas para unitários (`*Test`), integração (`*IT`) e interface JavaFX (`*E2E`), seguidas da geração do JAR. |
+| **Mutação (PIT)** | Executa os testes contra mutações do domínio, controladores e serviços. Falha se a pontuação ficar abaixo de **95%**, conforme o `pom.xml`. |
 
-O JAR gerado inclui os componentes nativos do JavaFX para **Linux**; para Windows ou macOS, faça o build no respectivo sistema conforme as instruções de execução. A entrega automatizada nesta pipeline é o artefato para download, sem deploy em servidor. O PIT continua sendo executado pelo comando separado de mutação.
+Os testes e a mutação usam bancos PostgreSQL 17 temporários e isolados por job, sempre chamados `hospedabem_test`. As telas rodam em uma sessão gráfica virtual com Xvfb. O PIT exclui os E2E e usa uma única thread para não disputar o banco entre mutantes. Não são necessários secrets: as credenciais declaradas no workflow pertencem somente aos bancos temporários da execução.
 
-O resultado aparece no PR. Para tornar sua aprovação obrigatória antes do merge, configure uma regra de proteção da `main` exigindo a verificação **Build e testes**.
+O lint Java verifica imports não utilizados ou redundantes, instruções vazias, correspondência entre classe e arquivo, tabulações, espaços no final da linha e quebra de linha final. As regras estão em [config/checkstyle.xml](config/checkstyle.xml); violações falham o build. O Checkstyle também roda na fase `validate` do Maven, portanto vale para os comandos locais de build e testes.
+
+Para executar as mesmas verificações localmente, com o banco de teste disponível e uma sessão gráfica para os E2E:
+
+```bash
+actionlint .github/workflows/ci.yml
+mvn checkstyle:check
+mvn clean test -Dtest='*Test'
+mvn test -Dtest='*IT'
+mvn test -Dtest='*E2E' -Dhb.e2e.capturas=target/e2e-capturas
+mvn -DskipTests package
+mvn test-compile org.pitest:pitest-maven:mutationCoverage
+```
+
+Em Linux sem monitor, execute o comando dos E2E com o prefixo `xvfb-run --auto-servernum`. Não execute os testes de integração e a mutação simultaneamente contra o mesmo banco.
+
+Para acompanhar, abra o PR e consulte **Checks**, ou vá à aba **Actions** do repositório. Na página da execução, a seção **Artifacts** disponibiliza `lint-java`, `resultados-testes-linux` (relatórios e capturas) e `mutacao-pit` (HTML e XML), inclusive quando a respectiva verificação falha e há arquivos gerados. Quando o build passa, também fica disponível `hospedabem-linux-java17`, com `hospedabem.jar`. Os arquivos são mantidos por sete dias.
+
+O JAR gerado inclui os componentes nativos do JavaFX para **Linux**; para Windows ou macOS, faça o build no respectivo sistema conforme as instruções de execução. A entrega automatizada nesta pipeline é o artefato para download, sem deploy em servidor. A execução só fica aprovada quando os três checks passam; não há `continue-on-error` nem redução do limite de mutação no workflow.
+
+O resultado aparece no PR. Para tornar sua aprovação obrigatória antes do merge, configure uma regra de proteção da `main` exigindo **Lint**, **Build e testes** e **Mutação (PIT)**.
 
 ## Verificação: casos de uso × telas × testes
 
