@@ -1,5 +1,7 @@
 package hospedabem.controller;
 
+import hospedabem.model.Funcionario;
+import hospedabem.model.Perfil;
 import hospedabem.model.TipoQuarto;
 import org.junit.jupiter.api.Test;
 
@@ -14,7 +16,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** Duas conexões simultâneas disputando a última vaga do tipo ou o mesmo quarto. */
+/** Duas conexões simultâneas disputando a última vaga do tipo, o mesmo quarto ou o último perfil de administrador. */
 class ConcorrenciaIT extends IntegracaoBase {
 
     /** Executa as tarefas ao mesmo tempo, cada uma em sua thread e conexão, e conta os sucessos. */
@@ -54,6 +56,43 @@ class ConcorrenciaIT extends IntegracaoBase {
             assertEquals(1, sucessos);
         }
         assertEquals(5, contar("SELECT COUNT(*) FROM reserva WHERE tipo_quarto_id = ?", t.id()));
+    }
+
+    /**
+     * Dois administradores rebaixando um ao outro ao mesmo tempo. Sem a trava das linhas de
+     * administrador, cada transação vê o outro ainda como administrador, as duas gravam linhas
+     * diferentes e o hotel fica sem ninguém para gerenciar funcionários. As duas sessões são
+     * atendidas pelo service direto porque a {@link Sessao} é única por aplicação.
+     */
+    @Test
+    void doisAdministradoresNaoSeRebaixamAoMesmoTempoDeixandoOHotelSemNenhum() throws Exception {
+        Funcionario admin01 = funcionario("admin01");
+        Funcionario marta = funcionarios.incluir(
+                novoFuncionario("marta01", "000.000.003-53", Perfil.ADMINISTRADOR), "Marta@2026".toCharArray());
+
+        // A janela da corrida é estreita: várias rodadas para que as duas transações cheguem a ler
+        // uma à outra antes de qualquer commit.
+        for (int rodada = 0; rodada < 20; rodada++) {
+            jdbc.update("UPDATE funcionario SET perfil = 'ADMINISTRADOR' WHERE id IN (?, ?)",
+                    admin01.id(), marta.id());
+            int sucessos = sucessosSimultaneos(List.of(
+                    () -> {
+                        servicoFuncionario.alterar(comPerfil(marta, Perfil.RECEPCIONISTA), admin01);
+                        return null;
+                    },
+                    () -> {
+                        servicoFuncionario.alterar(comPerfil(admin01, Perfil.RECEPCIONISTA), marta);
+                        return null;
+                    }));
+            assertEquals(1, sucessos, "rodada " + rodada);
+            assertEquals(1, contar("SELECT COUNT(*) FROM funcionario WHERE perfil = 'ADMINISTRADOR'"),
+                    "rodada " + rodada);
+        }
+    }
+
+    private static Funcionario comPerfil(Funcionario f, Perfil perfil) {
+        return Funcionario.informado(f.id(), f.matricula(), f.cpf(), f.nome(), f.endereco(), f.cidade(), f.estado(),
+                f.telefone(), f.email(), f.dataContratacao(), perfil);
     }
 
     @Test
