@@ -36,6 +36,7 @@ class ItemConsumoIT extends IntegracaoBase {
         assertTrue(itens.listar().isEmpty());
     }
 
+    /** Exercita campos ausentes, tamanhos excedidos e preços inválidos sem permitir gravações. */
     @Test
     void camposObrigatoriosLimitesEPrecisaoMonetariaSaoValidadosAntesDeGravar() {
         for (String invalido : new String[]{null, "", " ", "X".repeat(121)}) {
@@ -80,6 +81,7 @@ class ItemConsumoIT extends IntegracaoBase {
         assertThrows(NegocioException.class, () -> itens.excluir(inexistente));
     }
 
+    /** Confere todas as operações primeiro como recepcionista e depois sem sessão autenticada. */
     @Test
     void recepcionistaESessaoAusenteNaoPodemExecutarNenhumaOperacao() {
         ItemConsumo item = itens.incluir(new ItemConsumo(0, "AGUA", "Água", "Frigobar", BigDecimal.ONE));
@@ -131,6 +133,7 @@ class ItemConsumoIT extends IntegracaoBase {
         assertEquals(1, contar("SELECT COUNT(*) FROM consumo WHERE id = ?", consumo));
     }
 
+    /** Atualiza um banco da iteração 1 e confere o catálogo e a reserva após reiniciar a aplicação. */
     @Test
     void migracaoAtualizaBancoDaIteracaoUmSemPerderDadosEReinicioPreservaCatalogo() {
         int reserva = reservas.registrar(DIEGO, "SUI", HOJE.plusDays(3), HOJE.plusDays(5), 1).getCodigo();

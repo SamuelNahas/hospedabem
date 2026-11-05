@@ -123,6 +123,7 @@ final class RoboFx {
         aguardar();
     }
 
+    /** Responde ao diálogo modal na thread gráfica e aguarda a operação resultante terminar. */
     void clicarConfirmando(String texto, ButtonType resposta) {
         naFx(() -> {
             Platform.runLater(() -> {

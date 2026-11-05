@@ -19,6 +19,7 @@ public class ServicoItemConsumo {
         this.dao = dao;
     }
 
+    /** Retorna o catálogo persistido em ordem de código, disponível para integração com o UC11. */
     @Transactional(readOnly = true)
     public List<ItemConsumo> listar() {
         return dao.listar();
@@ -29,6 +30,7 @@ public class ServicoItemConsumo {
         return dao.buscarPorCodigo(codigo);
     }
 
+    /** Inclui o item e traduz conflitos de código em mensagem de negócio, sem gravação parcial. */
     @Transactional
     public ItemConsumo incluir(ItemConsumo item) {
         try {
@@ -38,6 +40,7 @@ public class ServicoItemConsumo {
         }
     }
 
+    /** Altera somente o catálogo; recusa item inexistente ou código já utilizado. */
     @Transactional
     public void alterar(ItemConsumo item) {
         try {
@@ -47,6 +50,7 @@ public class ServicoItemConsumo {
         }
     }
 
+    /** Exclui o item se existir e não houver consumos vinculados, preservando o histórico. */
     @Transactional
     public void excluir(ItemConsumo item) {
         try {

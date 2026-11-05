@@ -17,6 +17,7 @@ public class InicializadorBanco {
         this.demonstracao = demonstracao;
     }
 
+    /** Cria a carga somente em banco vazio e aplica migrações, serializando o DDL entre estações. */
     @Transactional
     public boolean inicializarSeVazio() {
         // Serializa o DDL entre estações; o bloqueio é liberado no commit ou rollback.

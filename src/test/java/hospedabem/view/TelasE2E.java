@@ -126,6 +126,7 @@ class TelasE2E {
                 + "WHERE q.numero = 401"));
     }
 
+    /** Confere pela tela validação, cadastro, busca, alteração e cancelamento ou confirmação da exclusão. */
     @Test
     void administradorGerenciaItensDeConsumoPelaTela() {
         entrar("admin01", "Admin@123");
