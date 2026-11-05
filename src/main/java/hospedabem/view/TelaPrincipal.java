@@ -3,6 +3,7 @@ package hospedabem.view;
 import hospedabem.controller.ControladorAutenticacao;
 import hospedabem.controller.ControladorCheckIn;
 import hospedabem.controller.ControladorDisponibilidade;
+import hospedabem.controller.ControladorFuncionario;
 import hospedabem.controller.ControladorQuarto;
 import hospedabem.controller.ControladorReserva;
 import hospedabem.controller.ControladorTipoQuarto;
@@ -41,10 +42,11 @@ public class TelaPrincipal extends BorderPane {
         Button tipos = item("Tipos de quarto", () -> new TelaTipoQuarto(ctx.getBean(ControladorTipoQuarto.class)));
         Button quartos = item("Quartos", () -> new TelaQuarto(ctx.getBean(ControladorQuarto.class),
                 ctx.getBean(ControladorDisponibilidade.class)));
+        Button funcionarios = item("Funcionários", () -> new TelaFuncionario(ctx.getBean(ControladorFuncionario.class)));
         if (!admin) {
-            for (Button b : List.of(tipos, quartos)) {
+            for (Button b : List.of(tipos, quartos, funcionarios)) {
                 b.setDisable(true);
-                b.setTooltip(new Tooltip("Restrito ao administrador (RF-3)"));
+                b.setTooltip(new Tooltip("Restrito ao administrador (RNF-10)"));
             }
         }
 
@@ -63,7 +65,7 @@ public class TelaPrincipal extends BorderPane {
         });
 
         VBox barra = new VBox(marca, secaoAtendimento, disponibilidade, reserva, checkIn, secaoCadastros, tipos,
-                quartos, espaco, usuario, sair);
+                quartos, funcionarios, espaco, usuario, sair);
         barra.getStyleClass().add("barra-lateral");
         conteudo.setFitToWidth(true);
         conteudo.getStyleClass().add("conteudo");

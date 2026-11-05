@@ -3,6 +3,7 @@ package hospedabem.controller;
 import hospedabem.BancoDeTeste;
 import hospedabem.dao.FuncionarioDAO;
 import hospedabem.dao.InicializadorBanco;
+import hospedabem.model.Funcionario;
 import hospedabem.model.Hospedagem;
 import hospedabem.model.Perfil;
 import hospedabem.model.Quarto;
@@ -33,6 +34,7 @@ abstract class IntegracaoBase {
     @Autowired FuncionarioDAO funcionarioDAO;
     @Autowired InicializadorBanco inicializador;
     @Autowired ControladorAutenticacao autenticacao;
+    @Autowired ControladorFuncionario funcionarios;
     @Autowired ControladorTipoQuarto tipos;
     @Autowired ControladorQuarto quartos;
     @Autowired ControladorDisponibilidade disponibilidade;
@@ -47,6 +49,12 @@ abstract class IntegracaoBase {
 
     void logarComo(String matricula) {
         sessao.iniciar(funcionarioDAO.buscarCredencial(matricula).orElseThrow().funcionario());
+    }
+
+    /** Funcionário válido com os campos obrigatórios; o id 0 indica inclusão. */
+    Funcionario novoFuncionario(String matricula, String cpf, Perfil perfil) {
+        return new Funcionario(0, matricula, cpf, "Marta Teste " + matricula, "Rua Fictícia, 1", "Campo Grande",
+                "MS", "(67) 90000-0009", matricula + "@exemplo.test", HOJE.minusYears(1), perfil);
     }
 
     TipoQuarto criarTipo(String codigo, int capacidade) {

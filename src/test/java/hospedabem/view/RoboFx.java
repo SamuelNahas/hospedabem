@@ -85,6 +85,14 @@ final class RoboFx {
         });
     }
 
+    /** Texto que está no campo, para conferir que uma recusa não apagou o que foi digitado. */
+    String conteudo(String rotulo) {
+        return naFx(() -> {
+            Node campo = campo(rotulo);
+            return (campo instanceof DatePicker d ? d.getEditor() : (TextInputControl) campo).getText();
+        });
+    }
+
     void escreverData(String rotulo, LocalDate data) {
         escrever(rotulo, Campos.texto(data));
     }

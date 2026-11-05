@@ -1,4 +1,4 @@
-# HospedaBem — Iteração 1
+# HospedaBem — Iterações 1 e 2
 
 Sistema desktop de hospedagem em hotéis. Trabalho de Análise e Projeto de Software Orientado a Objetos (FACOM/UFMS).
 
@@ -6,18 +6,19 @@ Sistema desktop de hospedagem em hotéis. Trabalho de Análise e Projeto de Soft
 
 Para colaborar no repositório, consulte o [tutorial básico de GitHub do grupo](docs/tutorial-github.md): assumir tarefas, usar o board, criar branches e abrir Pull Requests.
 
-Esta iteração implementa os seis casos de uso alocados na listagem de casos de uso (atividade D):
+A iteração 1 implementou os seis casos de uso alocados na listagem de casos de uso (atividade D). A iteração 2 começa pelo UC02:
 
-| UC | Caso de uso | Perfis |
-|----|-------------|--------|
-| UC01 | Autenticar-se | todos |
-| UC03 | Gerenciar Tipo de Quarto | administrador |
-| UC04 | Gerenciar Quarto | administrador |
-| UC07 | Consultar Disponibilidade de Quartos | administrador, recepcionista |
-| UC08 | Registrar Reserva | administrador, recepcionista |
-| UC10 | Realizar Check-in, com e sem reserva | administrador, recepcionista |
+| UC | Caso de uso | Perfis | Iteração |
+|----|-------------|--------|----------|
+| UC01 | Autenticar-se | todos | 1 |
+| UC02 | Gerenciar Funcionário | administrador | 2 |
+| UC03 | Gerenciar Tipo de Quarto | administrador | 1 |
+| UC04 | Gerenciar Quarto | administrador | 1 |
+| UC07 | Consultar Disponibilidade de Quartos | administrador, recepcionista | 1 |
+| UC08 | Registrar Reserva | administrador, recepcionista | 1 |
+| UC10 | Realizar Check-in, com e sem reserva | administrador, recepcionista | 1 |
 
-Ficam para as próximas iterações: cadastro de hóspedes (UC06) e de funcionários, alteração e cancelamento de reservas (UC09), consumos, check-out, pagamentos, comprovantes e relatórios. O menu só mostra o que foi implementado.
+Ficam para as próximas iterações: cadastro de hóspedes (UC06), alteração e cancelamento de reservas (UC09), consumos, check-out, pagamentos, comprovantes e relatórios, e a troca periódica de senha pelo próprio funcionário (RNF-8), que parte do UC02. O menu só mostra o que foi implementado.
 
 ## Tecnologia e organização (MVC)
 
@@ -73,6 +74,8 @@ As regras de negócio ficam no `model` e são testadas sem banco:
 | Quarto livre para entrada (RN-CI04) | `Quarto.exigirLivrePara` |
 | Reserva utilizável no check-in (RN-CI06) | `Reserva.exigirPermiteCheckIn` |
 | Dados da nova reserva | `SolicitacaoReserva.validar` |
+| Campos do funcionário, dígitos verificadores do CPF, autoexclusão e rebaixamento do próprio perfil | `Funcionario` |
+| Composição mínima da senha | `PoliticaDeSenha` |
 | Período `[entrada, saída)` e pico de ocupação | `Periodo`, `Ocupacao.pico` |
 | Vaga no tipo | `Disponibilidade.exigirVaga` |
 | Check-in: participantes, quarto escolhido, reserva inalterada e contrato de `confirmarCheckIn()` | `Atendimento` |
@@ -159,13 +162,13 @@ Há quatro níveis de teste. Todos rodam com `mvn test`, exceto a mutação, que
 
 | Nível | Arquivos | O que cobre | Banco |
 |---|---|---|---|
-| Unitário | `*Test` (41 testes) | Todas as regras do `model` (`Atendimento`, `Quarto`, `Reserva`, `SolicitacaoReserva`, `TipoQuarto`, `Periodo`, `Ocupacao`, `Disponibilidade`), `Sessao`, hash de senha, mensagens de erro, conversão de campos | não usa |
-| Integração | `*IT` (55 testes) | Controladores + services + DAOs + PostgreSQL: regras dos 6 UCs, transação do check-in, falha injetada na gravação, concorrência entre conexões, reinício | `hospedabem_test` |
-| Ponta a ponta (E2E) | `TelasE2E` (6 testes) | Telas JavaFX reais operadas como um usuário (`RoboFx`): login, permissões, cadastros, disponibilidade, reserva, check-in com e sem reserva. Confere a tela e o banco. | `hospedabem_test` |
+| Unitário | `*Test` (53 testes) | Todas as regras do `model` (`Atendimento`, `Quarto`, `Reserva`, `SolicitacaoReserva`, `TipoQuarto`, `Periodo`, `Ocupacao`, `Disponibilidade`, `Funcionario`, `PoliticaDeSenha`), `Sessao`, hash de senha, mensagens de erro, conversão de campos | não usa |
+| Integração | `*IT` (69 testes) | Controladores + services + DAOs + PostgreSQL: regras dos 7 UCs, transação do check-in, falha injetada na gravação, concorrência entre conexões, reinício | `hospedabem_test` |
+| Ponta a ponta (E2E) | `TelasE2E` (7 testes) | Telas JavaFX reais operadas como um usuário (`RoboFx`): login, permissões, cadastros, funcionários, disponibilidade, reserva, check-in com e sem reserva. Confere a tela e o banco. | `hospedabem_test` |
 | Mutação | PIT (`pitest-maven`) | Altera o código de `model`, `controller` e `service` e verifica se algum teste falha | `hospedabem_test` |
 
 ```bash
-mvn test                      # unitários + integração + E2E (102 testes)
+mvn test                      # unitários + integração + E2E (129 testes)
 mvn test -Dtest='*Test'       # somente unitários, sem banco
 mvn test -Dtest='TelasE2E' -Dhb.e2e.capturas=docs/telas   # E2E salvando a captura de cada passo
 mvn test-compile org.pitest:pitest-maven:mutationCoverage  # mutação; relatório em target/pit-reports/index.html
@@ -175,14 +178,23 @@ Os testes de integração e E2E recriam o esquema **somente do banco de teste**.
 
 Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem monitor, use `xvfb-run mvn test`. A mutação roda numa única thread, porque os testes compartilham o banco de teste.
 
-### Resultado verificado em 03/11/2026 (OpenJDK 27 com `--release 17`, PostgreSQL 17)
+### Resultado verificado
 
-- `mvn package`: **102 testes, 0 falhas, 0 erros** (41 unitários, 55 de integração, 6 E2E).
-- Mutação (PIT 1.17.4): **234 mutantes, 228 mortos (97%)**, nenhum sem cobertura, força de teste de 97%. O build exige no mínimo 95% (`mutationThreshold`). Os 6 sobreviventes são equivalentes ou inobserváveis em teste:
-  - 4 remoções de `TipoQuartoDAO.bloquear` nos cadastros de tipo e quarto. O bloqueio só faz diferença com transações concorrentes, e um teste para isso dependeria de corrida de threads, ou seja, seria instável. O bloqueio equivalente da reserva é verificado por `ConcorrenciaIT`.
-  - `PBEKeySpec.clearPassword()`: limpeza de memória, sem efeito observável.
-  - `SET LOCAL statement_timeout = 3000` da consulta de disponibilidade: só se manifesta com uma consulta lenta.
+| Rodada | Ambiente | Testes | Mutação (PIT 1.17.4) |
+|---|---|---|---|
+| Iteração 1, 03/11/2026 | OpenJDK 27 com `--release 17`, PostgreSQL 17 | **102**, 0 falhas, 0 erros (41 unitários, 55 de integração, 6 E2E) | **234 mutantes, 228 mortos (97%)** |
+| Iteração 2 (UC02), 05/11/2026 | OpenJDK 25 com `--release 17`, PostgreSQL 17.11 | **129**, 0 falhas, 0 erros (53 unitários, 69 de integração, 7 E2E) | **342 mutantes, 336 mortos (98%)** |
+
+Nenhum mutante ficou sem cobertura. O build exige no mínimo 95% (`mutationThreshold`). Os 6 sobreviventes da última rodada são os mesmos equivalentes ou inobserváveis em teste de antes:
+
+- 4 remoções de `TipoQuartoDAO.bloquear` nos cadastros de tipo e quarto. O bloqueio só faz diferença com transações concorrentes, e um teste para isso dependeria de corrida de threads, ou seja, seria instável. O bloqueio equivalente da reserva é verificado por `ConcorrenciaIT`.
+- `PBEKeySpec.clearPassword()`: limpeza de memória, sem efeito observável.
+- `SET LOCAL statement_timeout = 3000` da consulta de disponibilidade: só se manifesta com uma consulta lenta.
+
+### O que a mutação revelou
+
 - A primeira rodada do PIT (80%) revelou lacunas reais, cobertas depois por testes: etapas do check-in fora de ordem, manutenção do quarto após o resumo com folga no tipo, reserva ou quarto apagados antes da confirmação, capacidade exatamente no limite e senha não apagada da memória. Revelou também duas pré-checagens de duplicidade redundantes com a restrição `UNIQUE` do banco, que foram removidas. Depois da separação das regras no `model`, a mutação apontou mais uma lacuna, já coberta: check-in sem reserva quando a última vaga do tipo pertence à reserva de outro hóspede. Com a criação da camada `service`, apontou `ControladorReserva.buscarResponsavel` sem teste, coberto por `ReservaIT.buscarResponsavelRetornaOHospedeCadastrado`.
+- No UC02, a mutação apontou 5 lacunas reais, todas cobertas depois: os campos opcionais em branco (estado, telefone e e-mail) podiam virar texto vazio em vez de `null` sem nenhum teste reclamar; o limite exato de 120 caracteres do nome não era exercitado; e `ServicoFuncionario.alterar` conferia a data de contratação sem que nenhum teste cobrisse data futura **na alteração** — só na inclusão.
 - Os E2E encontraram um problema de interface: o item do menu e o botão da página de reserva tinham o mesmo texto. O botão passou a se chamar "Confirmar reserva". As capturas estão em `docs/telas`.
 
 ## Verificação: casos de uso × telas × testes
@@ -190,6 +202,7 @@ Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem mon
 | UC | Tela | Controlador | Testes |
 |---|---|---|---|
 | UC01 | `TelaLogin`, `TelaPrincipal` (itens de cadastro desabilitados para a recepcionista) | `ControladorAutenticacao`, `Sessao` | `AutenticacaoIT` (login correto, senha incorreta, matrícula inexistente, chamadas diretas sem sessão e sem perfil, hash PBKDF2, senha apagada da memória), `SenhaTest`, `SessaoTest`, `TelasE2E` |
+| UC02 | `TelaFuncionario` (lista, busca por matrícula/nome/CPF, formulário com perfil e senha inicial) | `ControladorFuncionario`, `ServicoFuncionario` | `FuncionarioTest` (campos obrigatórios, CPF com dígitos verificadores, UF, telefone, e-mail, autoexclusão, rebaixamento do próprio perfil), `PoliticaDeSenhaTest`; `FuncionarioIT` (inclusão/listagem/busca/alteração/exclusão, matrícula e CPF duplicados na inclusão e na alteração com dados preservados, acesso de recepcionista e sem sessão em todas as operações, delegação do perfil de administrador, autoexclusão, auto-rebaixamento, último administrador, exclusão com reserva e com hospedagem, somente hash gravado, login do funcionário criado, redefinição de senha, senha apagada da memória, persistência após reinício); `TelasE2E` (cadastro, duplicidade, delegação de perfil, impedimento de exclusão e login do recém-cadastrado) |
 | UC03 | `TelaTipoQuarto` | `ControladorTipoQuarto` | `TelasE2E`, `DominioTest`, `CadastroIT`: inclusão/busca/alteração/exclusão, código duplicado, valores inválidos, exclusão com quarto ou reserva, redução de capacidade abaixo de reserva |
 | UC04 | `TelaQuarto` | `ControladorQuarto` | `TelasE2E`, `DominioTest`, `CadastroIT`: número duplicado, tipo inexistente, ocupado/reservado pelo cadastro, RN-Q04 (hospedagem ativa), RN-Q05 (manutenção/troca de tipo/exclusão inviabilizando reserva, com dados preservados), RN-Q06 (histórico) |
 | UC07 | `TelaDisponibilidade` | `ControladorDisponibilidade`, `ServicoDisponibilidade` | `TelasE2E`, `OcupacaoTest` (período inválido, sobreposição, adjacência, reservas que não se sobrepõem entre si); `DisponibilidadeIT` (manutenção, convertida não contada duas vezes, cancelada, hospedagem atrasada) |
@@ -216,7 +229,17 @@ Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem mon
 16. **Senhas:** PBKDF2-HMAC-SHA256 com 210.000 iterações e *salt* de 16 bytes. Os documentos dizem "criptografadas", mas o hash não é reversível de propósito. O login gasta o mesmo tempo para matrícula existente ou inexistente.
 17. **Códigos** de reserva (a partir de 1001) e de hospedagem (a partir de 5001) vêm de sequências do banco. O código do tipo de quarto é texto (por exemplo, `STD`), e não `int` como no DCP, porque é o código que o recepcionista lê e digita nas telas de reserva e check-in.
 18. **JavaFX pelo classpath:** o JAR único (Spring Boot) carrega o JavaFX do classpath. Por isso, `App` não estende `Application` e delega a `view/AplicacaoFx`. O aviso `Unsupported JavaFX configuration` no log é esperado e não afeta o funcionamento.
-19. **Fonte dos diagramas:** a implementação segue as exportações `GrupoN_DC.jpg` e `GrupoN_DCP.jpg` do projeto Astah do grupo (`GrupoN.asta`).
+19. **Políticas do UC02 não especificadas nos documentos.** Os artefatos da disciplina não dizem o que fazer quando o administrador age sobre o próprio cadastro nem quando resta um único administrador. A implementação adota, e testa, três proibições:
+    - **Autoexclusão:** um administrador não exclui o próprio cadastro. A sessão em uso ficaria sem dono e o acesso seria perdido por acidente. Para sair do sistema, outro administrador exclui o cadastro.
+    - **Rebaixar o próprio perfil:** um administrador não troca o próprio perfil para recepcionista. A operação revogaria, no meio da sessão, a permissão que a está autorizando. Promover-se não é rebaixamento e continua permitido (é inócuo: já é administrador).
+    - **Último administrador:** nem a exclusão nem o rebaixamento podem deixar o banco sem nenhum administrador, pois ninguém mais poderia gerenciar funcionários. Com as duas regras acima, o autor da operação já é um administrador diferente do alvo, então essa checagem só se manifesta quando o cadastro do próprio autor foi excluído por outra estação durante a sessão — caso coberto por `FuncionarioIT.oUltimoAdministradorNaoPodeSerExcluidoNemRebaixado`.
+
+    As duas primeiras dependem de quem está na sessão e são verificadas no controlador, que passa o funcionário da sessão ao service (`Funcionario.exigirExclusaoPor`, `Funcionario.exigirAlteracaoPor`). A terceira depende do estado do banco e é verificada no service, dentro da transação.
+20. **Exclusão de funcionário com histórico.** Reservas e hospedagens apontam para o funcionário que as registrou com `ON DELETE RESTRICT`. O service conta os vínculos antes de apagar e recusa a exclusão com a quantidade encontrada, sugerindo alterar os dados ou o perfil. Nada do histórico é apagado nem anonimizado: quem registrou cada reserva e cada check-in continua identificável.
+21. **Duplicidade de matrícula e de CPF.** O CPF é validado pelos dígitos verificadores e gravado sempre formatado (`000.000.000-00`), para que não existam duas grafias do mesmo número. Diferente dos outros cadastros, a duplicidade é conferida antes de gravar, por campo, porque a mensagem precisa dizer *qual* campo repetiu; as restrições `UNIQUE` do banco continuam sendo a garantia final entre estações simultâneas. Em qualquer recusa, a tela mantém os dados digitados.
+22. **Senha do funcionário.** A inclusão exige uma senha inicial e grava apenas o hash PBKDF2 (RNF-7); a senha nunca é gravada nem registrada em log, e o vetor de caracteres é zerado depois do uso. A alteração dos dados não mexe na senha: há o botão "Redefinir senha", que grava o novo hash e atualiza `senha_alterada_em`. A composição mínima adotada é de 8 caracteres com ao menos uma letra e um número (`PoliticaDeSenha`), compartilhada com a troca pelo próprio funcionário (RNF-8, iteração 2), que usará a mesma coluna `senha_alterada_em` para detectar o vencimento.
+23. **Esquema do banco no UC02.** A tabela `funcionario` já tinha, desde a iteração 1, todas as colunas do caso de uso (endereço, cidade, estado, telefone, e-mail e `senha_alterada_em`), porque a autenticação e a carga fictícia dependiam dela. Por isso o UC02 **não** alterou `schema.sql` e nenhum banco já populado precisa de atualização: `InicializadorBanco` continua criando o esquema apenas quando o banco está vazio.
+24. **Fonte dos diagramas:** a implementação segue as exportações `GrupoN_DC.jpg` e `GrupoN_DCP.jpg` do projeto Astah do grupo (`GrupoN.asta`).
 
 ## Transações, concorrência e falhas
 
@@ -243,10 +266,10 @@ Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem mon
 | RNF-3 (15 usuários) | O pool de 3 conexões por estação soma 45 conexões, abaixo do padrão de 100 do PostgreSQL. A concorrência foi testada com 2 conexões simultâneas (`ConcorrenciaIT`). **15 estações reais não foram testadas.** |
 | RNF-4, RNF-5 | Atomicidade testada. Backup por `pg_dump` documentado, mas não automatizado. |
 | RNF-6 (24×7) | Depende da implantação: servidor PostgreSQL com reinício automático, *nobreak* e backup. Não testado. |
-| RNF-7 | Atendido com hash PBKDF2 e teste correspondente. |
-| RNF-8 (troca periódica) | Planejado para a iteração 2, junto com o gerenciamento de funcionários, do qual depende. A coluna `senha_alterada_em` já existe. |
+| RNF-7 | Atendido com hash PBKDF2 e teste correspondente, tanto no login quanto no cadastro e na redefinição de senha do UC02. |
+| RNF-8 (troca periódica) | Parcial: o UC02 já define a senha inicial, permite a redefinição pelo administrador e atualiza `senha_alterada_em` a cada troca, com a composição mínima em `PoliticaDeSenha`. Falta a troca pelo próprio funcionário e a exigência de renovação por vencimento. |
 | RNF-9 | Configuração de rede local documentada. Depende do `pg_hba.conf` e do *firewall*. |
-| RNF-10 | Atendido: perfis verificados no controlador e testados. |
+| RNF-10 | Atendido: perfis verificados no controlador e testados, inclusive a delegação do perfil de administrador no UC02, recusada para a recepcionista e para chamadas sem sessão. |
 | RNF-11 | Camadas MVC com service e DAO por entidade. Cada camada só depende da de baixo (ver "Por que MVC em camadas"). |
 | RNF-12 | O check-in ocupa uma página com 4 etapas; a confirmação fica na última. Dentro do limite de 5. |
 | RNF-13 | Java, JavaFX e PostgreSQL são multiplataforma. O Maven baixa os componentes nativos do JavaFX do sistema em que o build é feito: gere o JAR em cada sistema operacional de destino. **Executado apenas no macOS.** |
@@ -256,8 +279,9 @@ Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem mon
 
 O Processo Unificado é iterativo: cada iteração entrega um conjunto de casos de uso completo, da análise ao código testado. Ficam para as próximas iterações, conforme a listagem de casos de uso:
 
-- UC06 (hóspedes) e o gerenciamento de funcionários. Nesta iteração já existem o modelo, as consultas e a carga fictícia que eles vão usar.
-- RNF-8: troca periódica de senha, que depende do gerenciamento de funcionários. A coluna `senha_alterada_em` já existe.
+- UC06 (hóspedes). O modelo, as consultas e a carga fictícia que ele vai usar já existem.
+- RNF-8: troca de senha pelo próprio funcionário e exigência de renovação periódica. O UC02 já entregou a definição e a redefinição da senha, a coluna `senha_alterada_em` atualizada a cada troca e a `PoliticaDeSenha`; falta definir o prazo de validade e bloquear as operações até a renovação.
+- UC05, UC09, UC11 e UC12, conforme a listagem de casos de uso.
 
 ## Entrega em ZIP
 
