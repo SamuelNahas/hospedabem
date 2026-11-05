@@ -12,6 +12,7 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 
 import java.time.LocalDate;
+import java.util.Arrays;
 
 public class TelaFuncionario extends Pagina {
     private final ControladorFuncionario controlador;
@@ -30,7 +31,7 @@ public class TelaFuncionario extends Pagina {
     private final TextField estado = new TextField();
     private final TextField telefone = new TextField();
     private final TextField email = new TextField();
-    private final DatePicker contratacao = Campos.seletorData(null);
+    private final DatePicker contratacao = Campos.seletorData(LocalDate.now());
     private final ComboBox<Perfil> perfil = new ComboBox<>();
     private final PasswordField senha = new PasswordField();
     private final TextField termo = new TextField();
@@ -97,26 +98,35 @@ public class TelaFuncionario extends Pagina {
 
     /** Monta o funcionário com os dados digitados; em caso de recusa o formulário continua preenchido. */
     private Funcionario doFormulario() {
-        return new Funcionario(selecionado == null ? 0 : selecionado.id(), matricula.getText(), cpf.getText(),
+        return Funcionario.informado(selecionado == null ? 0 : selecionado.id(), matricula.getText(), cpf.getText(),
                 nome.getText(), endereco.getText(), cidade.getText(), estado.getText(), telefone.getText(),
                 email.getText(), Campos.data(Campos.textoData(contratacao), "Data de contratação"),
                 perfil.getValue());
     }
 
     private void salvar() {
+        boolean inclusao = selecionado == null;
         Funcionario f;
         char[] nova;
         try {
             f = doFormulario();
+            // Salvar não troca senha: dizer isso é melhor do que gravar o resto e deixar a senha
+            // antiga valendo sem avisar.
+            if (!inclusao && !senha.getText().isEmpty())
+                throw new NegocioException("Salvar não troca a senha. Para definir uma senha nova para "
+                        + f.matricula() + ", use \"Redefinir senha\".");
             nova = senha.getText().toCharArray();
         } catch (NegocioException e) {
             aviso.erro(e.getMessage());
             return;
         }
-        boolean inclusao = selecionado == null;
         Tarefa.executar(salvar, aviso, () -> {
-            if (inclusao) controlador.incluir(f, nova);
-            else controlador.alterar(f);
+            try {
+                if (inclusao) controlador.incluir(f, nova);
+                else controlador.alterar(f);
+            } finally {
+                Arrays.fill(nova, '\0');
+            }
             return f;
         }, ok -> {
             selecionar(null);
@@ -134,7 +144,11 @@ public class TelaFuncionario extends Pagina {
         Funcionario alvo = selecionado;
         char[] nova = senha.getText().toCharArray();
         Tarefa.executar(origem, aviso, () -> {
-            controlador.redefinirSenha(alvo, nova);
+            try {
+                controlador.redefinirSenha(alvo, nova);
+            } finally {
+                Arrays.fill(nova, '\0');
+            }
             return alvo;
         }, ok -> {
             senha.clear();

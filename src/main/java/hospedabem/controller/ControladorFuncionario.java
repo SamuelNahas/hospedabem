@@ -6,12 +6,12 @@ import hospedabem.service.ServicoFuncionario;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Optional;
 
 /**
  * UC02 Gerenciar Funcionário. Toda operação exige sessão de administrador (RNF-10), inclusive a
  * delegação do perfil de administrador: chamadas sem sessão ou de recepcionista são recusadas aqui,
- * antes de chegar ao service.
+ * antes de chegar ao service. O funcionário da sessão é repassado como autor, e o service o
+ * reconfere no banco, porque o perfil pode ter mudado depois do login.
  */
 @Component
 public class ControladorFuncionario {
@@ -28,19 +28,14 @@ public class ControladorFuncionario {
         return servico.listar();
     }
 
-    public Optional<Funcionario> buscar(String matricula) {
-        sessao.exigir(Perfil.ADMINISTRADOR);
-        return servico.buscar(matricula);
-    }
-
     public List<Funcionario> procurar(String termo) {
         sessao.exigir(Perfil.ADMINISTRADOR);
         return servico.procurar(termo);
     }
 
     public Funcionario incluir(Funcionario f, char[] senha) {
-        sessao.exigir(Perfil.ADMINISTRADOR);
-        return servico.incluir(f, senha);
+        Funcionario autor = sessao.exigir(Perfil.ADMINISTRADOR);
+        return servico.incluir(f, senha, autor);
     }
 
     public void alterar(Funcionario f) {
@@ -54,7 +49,7 @@ public class ControladorFuncionario {
     }
 
     public void redefinirSenha(Funcionario f, char[] senha) {
-        sessao.exigir(Perfil.ADMINISTRADOR);
-        servico.redefinirSenha(f.id(), senha);
+        Funcionario autor = sessao.exigir(Perfil.ADMINISTRADOR);
+        servico.redefinirSenha(f.id(), senha, autor);
     }
 }

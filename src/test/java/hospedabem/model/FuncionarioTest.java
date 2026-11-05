@@ -15,7 +15,7 @@ class FuncionarioTest {
     private static final LocalDate HOJE = LocalDate.of(2026, 11, 5);
 
     private static Funcionario funcionario(int id, String matricula, String cpf, Perfil perfil) {
-        return new Funcionario(id, matricula, cpf, "Marta Teste", null, null, null, null, null, HOJE, perfil);
+        return Funcionario.informado(id, matricula, cpf, "Marta Teste", null, null, null, null, null, HOJE, perfil);
     }
 
     private static Funcionario valido() {
@@ -24,7 +24,7 @@ class FuncionarioTest {
 
     @Test
     void camposObrigatoriosSaoNormalizadosEOsOpcionaisVaziosViramNulos() {
-        Funcionario f = new Funcionario(7, "  MARTA01 ", "00000000191", "  Marta   Teste  Silva ", "  ", "",
+        Funcionario f = Funcionario.informado(7, "  MARTA01 ", "00000000191", "  Marta   Teste  Silva ", "  ", "",
                 " ms ", " (67) 90000-0001 ", " marta@exemplo.test ", HOJE, Perfil.ADMINISTRADOR);
         assertEquals("marta01", f.matricula());
         assertEquals("000.000.001-91", f.cpf());
@@ -65,29 +65,29 @@ class FuncionarioTest {
 
     @Test
     void nomeObrigatorioComTamanhoValido() {
-        assertThrows(NegocioException.class, () -> new Funcionario(0, "marta01", "000.000.001-91", " ", null, null,
+        assertThrows(NegocioException.class, () -> Funcionario.informado(0, "marta01", "000.000.001-91", " ", null, null,
                 null, null, null, HOJE, Perfil.RECEPCIONISTA));
-        assertThrows(NegocioException.class, () -> new Funcionario(0, "marta01", "000.000.001-91", "Jo", null, null,
+        assertThrows(NegocioException.class, () -> Funcionario.informado(0, "marta01", "000.000.001-91", "Jo", null, null,
                 null, null, null, HOJE, Perfil.RECEPCIONISTA));
-        assertThrows(NegocioException.class, () -> new Funcionario(0, "marta01", "000.000.001-91", "a".repeat(121),
+        assertThrows(NegocioException.class, () -> Funcionario.informado(0, "marta01", "000.000.001-91", "a".repeat(121),
                 null, null, null, null, null, HOJE, Perfil.RECEPCIONISTA));
-        assertEquals("Ana", new Funcionario(0, "marta01", "000.000.001-91", "Ana", null, null, null, null, null,
+        assertEquals("Ana", Funcionario.informado(0, "marta01", "000.000.001-91", "Ana", null, null, null, null, null,
                 HOJE, Perfil.RECEPCIONISTA).nome());
-        assertEquals(120, new Funcionario(0, "marta01", "000.000.001-91", "a".repeat(120), null, null, null, null,
+        assertEquals(120, Funcionario.informado(0, "marta01", "000.000.001-91", "a".repeat(120), null, null, null, null,
                 null, HOJE, Perfil.RECEPCIONISTA).nome().length());
     }
 
     @Test
     void estadoTelefoneEEmailSaoValidadosQuandoInformados() {
-        assertThrows(NegocioException.class, () -> new Funcionario(0, "marta01", "000.000.001-91", "Marta Teste",
+        assertThrows(NegocioException.class, () -> Funcionario.informado(0, "marta01", "000.000.001-91", "Marta Teste",
                 null, null, "XX", null, null, HOJE, Perfil.RECEPCIONISTA));
-        assertThrows(NegocioException.class, () -> new Funcionario(0, "marta01", "000.000.001-91", "Marta Teste",
+        assertThrows(NegocioException.class, () -> Funcionario.informado(0, "marta01", "000.000.001-91", "Marta Teste",
                 null, null, null, "9999-9999", null, HOJE, Perfil.RECEPCIONISTA));
-        assertThrows(NegocioException.class, () -> new Funcionario(0, "marta01", "000.000.001-91", "Marta Teste",
+        assertThrows(NegocioException.class, () -> Funcionario.informado(0, "marta01", "000.000.001-91", "Marta Teste",
                 null, null, null, null, "marta.exemplo", HOJE, Perfil.RECEPCIONISTA));
-        assertThrows(NegocioException.class, () -> new Funcionario(0, "marta01", "000.000.001-91", "Marta Teste",
+        assertThrows(NegocioException.class, () -> Funcionario.informado(0, "marta01", "000.000.001-91", "Marta Teste",
                 null, null, null, null, "marta@exemplo", HOJE, Perfil.RECEPCIONISTA));
-        Funcionario f = new Funcionario(0, "marta01", "000.000.001-91", "Marta Teste", "Rua 1", "Dourados", "ms",
+        Funcionario f = Funcionario.informado(0, "marta01", "000.000.001-91", "Marta Teste", "Rua 1", "Dourados", "ms",
                 "6730000000", "marta@exemplo.test.br", HOJE, Perfil.RECEPCIONISTA);
         assertEquals("MS", f.estado());
         assertEquals("6730000000", f.telefone());
@@ -99,7 +99,7 @@ class FuncionarioTest {
     @Test
     void camposOpcionaisOmitidosOuEmBrancoFicamNulosENaoViramTextoVazio() {
         for (String ausente : new String[]{null, "", "   "}) {
-            Funcionario f = new Funcionario(0, "marta01", "000.000.001-91", "Marta Teste", ausente, ausente,
+            Funcionario f = Funcionario.informado(0, "marta01", "000.000.001-91", "Marta Teste", ausente, ausente,
                     ausente, ausente, ausente, HOJE, Perfil.RECEPCIONISTA);
             assertNull(f.endereco());
             assertNull(f.cidade());
@@ -111,15 +111,60 @@ class FuncionarioTest {
 
     @Test
     void dataDeContratacaoEPerfilSaoObrigatoriosEANaoPodeSerFutura() {
-        assertThrows(NegocioException.class, () -> new Funcionario(0, "marta01", "000.000.001-91", "Marta Teste",
+        assertThrows(NegocioException.class, () -> Funcionario.informado(0, "marta01", "000.000.001-91", "Marta Teste",
                 null, null, null, null, null, null, Perfil.RECEPCIONISTA));
-        assertThrows(NegocioException.class, () -> new Funcionario(0, "marta01", "000.000.001-91", "Marta Teste",
+        assertThrows(NegocioException.class, () -> Funcionario.informado(0, "marta01", "000.000.001-91", "Marta Teste",
                 null, null, null, null, null, HOJE, null));
-        Funcionario amanha = new Funcionario(0, "marta01", "000.000.001-91", "Marta Teste", null, null, null, null,
+        Funcionario amanha = Funcionario.informado(0, "marta01", "000.000.001-91", "Marta Teste", null, null, null, null,
                 null, HOJE.plusDays(1), Perfil.RECEPCIONISTA);
         assertThrows(NegocioException.class, () -> amanha.exigirContratacaoAte(HOJE));
         valido().exigirContratacaoAte(HOJE);
         valido().exigirContratacaoAte(HOJE.plusDays(1));
+    }
+
+    @Test
+    void oTamanhoDasColunasEhConferidoAntesDoBanco() {
+        assertThrows(NegocioException.class, () -> Funcionario.informado(0, "marta01", "000.000.001-91",
+                "Marta Teste", "a".repeat(201), null, null, null, null, HOJE, Perfil.RECEPCIONISTA));
+        assertThrows(NegocioException.class, () -> Funcionario.informado(0, "marta01", "000.000.001-91",
+                "Marta Teste", null, "a".repeat(81), null, null, null, HOJE, Perfil.RECEPCIONISTA));
+        assertThrows(NegocioException.class, () -> Funcionario.informado(0, "marta01", "000.000.001-91",
+                "Marta Teste", null, null, null, "(67) 90000-0001 r1234", null, HOJE, Perfil.RECEPCIONISTA));
+        assertThrows(NegocioException.class, () -> Funcionario.informado(0, "marta01", "000.000.001-91",
+                "Marta Teste", null, null, null, null, "a".repeat(108) + "@exemplo.test", HOJE, Perfil.RECEPCIONISTA));
+        Funcionario limite = Funcionario.informado(0, "marta01", "000.000.001-91", "Marta Teste", "a".repeat(200),
+                "a".repeat(80), null, "(67) 90000-0001 r123", "a".repeat(107) + "@exemplo.test", HOJE,
+                Perfil.RECEPCIONISTA);
+        assertEquals(200, limite.endereco().length());
+        assertEquals(80, limite.cidade().length());
+        assertEquals(20, limite.telefone().length());
+        assertEquals(120, limite.email().length());
+    }
+
+    /**
+     * Linhas gravadas na iteração 1, antes destas regras, não passam pelo formato atual. Reconstituí-las
+     * não pode falhar, senão a listagem e o login de quem está nelas quebram.
+     */
+    @Test
+    void aReconstituicaoDeUmaLinhaGravadaNaoAplicaAsRegrasDeFormato() {
+        Funcionario antigo = new Funcionario(5, "adm_02", "00000000191", "jo", "a".repeat(300), "a".repeat(300),
+                "XX", "9000-0001", "sem-arroba", HOJE, Perfil.ADMINISTRADOR);
+        assertEquals("adm_02", antigo.matricula());
+        assertEquals("9000-0001", antigo.telefone());
+        assertEquals("sem-arroba", antigo.email());
+        assertThrows(NegocioException.class, antigo::validado);
+
+        // Mesmo reconstituindo, o que o esquema garante continua exigido.
+        assertThrows(NegocioException.class, () -> new Funcionario(5, " ", "00000000191", "Marta Teste", null, null,
+                null, null, null, HOJE, Perfil.ADMINISTRADOR));
+        assertThrows(NegocioException.class, () -> new Funcionario(5, "adm_02", " ", "Marta Teste", null, null,
+                null, null, null, HOJE, Perfil.ADMINISTRADOR));
+        assertThrows(NegocioException.class, () -> new Funcionario(5, "adm_02", "00000000191", " ", null, null,
+                null, null, null, HOJE, Perfil.ADMINISTRADOR));
+        assertThrows(NegocioException.class, () -> new Funcionario(5, "adm_02", "00000000191", "Marta Teste", null,
+                null, null, null, null, null, Perfil.ADMINISTRADOR));
+        assertThrows(NegocioException.class, () -> new Funcionario(5, "adm_02", "00000000191", "Marta Teste", null,
+                null, null, null, null, HOJE, null));
     }
 
     @Test

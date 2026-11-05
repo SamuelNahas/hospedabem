@@ -249,6 +249,9 @@ class TelasE2E {
         entrar("admin01", "Admin@123");
         robo.clicar("Funcionários");
         assertEquals(2, robo.linhasDaTabela());
+        // A data de contratação já vem com o dia corrente, e não em branco: o primeiro cadastro da
+        // tela não pode falhar por um campo que o formulário recém-limpo preenche sozinho.
+        assertEquals(Campos.texto(HOJE), robo.conteudo("Data de contratação"));
 
         // Inclusão com perfil de recepcionista e senha inicial.
         robo.escrever("Matrícula", "marta01");
@@ -259,7 +262,6 @@ class TelasE2E {
         robo.escrever("Estado (UF)", "MS");
         robo.escrever("Telefone", "(67) 90000-0003");
         robo.escrever("E-mail", "marta@exemplo.test");
-        robo.escreverData("Data de contratação", HOJE);
         robo.escolher("Perfil", p -> p.toString().equals("RECEPCIONISTA"));
         robo.escrever("Senha", "Marta@2026");
         robo.clicar("Salvar");
@@ -296,6 +298,13 @@ class TelasE2E {
         assertEquals("Funcionário marta01 gravado como administrador.", robo.aviso());
         assertEquals("ADMINISTRADOR", consultar("SELECT perfil FROM funcionario WHERE matricula = 'marta01'"));
         robo.capturar("funcionario-perfil-delegado");
+
+        // Salvar não troca senha: com senha digitada numa alteração, a tela recusa em vez de gravar
+        // o resto e deixar a senha antiga valendo sem avisar.
+        robo.selecionarLinha(0);
+        robo.escrever("Senha", "Outra@2026");
+        robo.clicar("Salvar");
+        assertTrue(robo.aviso().startsWith("Salvar não troca a senha."), robo.aviso());
 
         // Exclusão de quem tem reserva registrada é recusada, sem apagar o histórico.
         robo.escreverNoCampoComDica("Matrícula, nome ou CPF", "recep01");

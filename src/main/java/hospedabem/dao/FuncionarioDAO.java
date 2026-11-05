@@ -24,9 +24,11 @@ public class FuncionarioDAO {
     public record Credencial(Funcionario funcionario, String senhaHash) {
     }
 
+    /** A matrícula é gravada em minúsculas, então o login compara em minúsculas: "Maria01" entra. */
     public Optional<Credencial> buscarCredencial(String matricula) {
-        return jdbc.query("SELECT " + COLUNAS + ", senha_hash FROM funcionario WHERE matricula = ?",
-                (rs, i) -> new Credencial(ler(rs), rs.getString("senha_hash")), matricula).stream().findFirst();
+        return jdbc.query("SELECT " + COLUNAS + ", senha_hash FROM funcionario WHERE lower(matricula) = ?",
+                (rs, i) -> new Credencial(ler(rs), rs.getString("senha_hash")), normalizar(matricula))
+                .stream().findFirst();
     }
 
     public List<Funcionario> listar() {
@@ -36,11 +38,6 @@ public class FuncionarioDAO {
     public Optional<Funcionario> buscarPorId(int id) {
         return jdbc.query("SELECT " + COLUNAS + " FROM funcionario WHERE id = ?", (rs, i) -> ler(rs), id)
                 .stream().findFirst();
-    }
-
-    public Optional<Funcionario> buscarPorMatricula(String matricula) {
-        return jdbc.query("SELECT " + COLUNAS + " FROM funcionario WHERE matricula = ?", (rs, i) -> ler(rs),
-                matricula == null ? "" : matricula.trim().toLowerCase()).stream().findFirst();
     }
 
     /** Busca por termo em matrícula, nome ou CPF, para a busca da tela. */
@@ -65,8 +62,12 @@ public class FuncionarioDAO {
         return contar("cpf = ? AND id <> ?", cpf, exceto) > 0;
     }
 
-    public int contarAdministradores(int exceto) {
-        return contar("perfil = 'ADMINISTRADOR' AND id <> ?", exceto);
+    /**
+     * Trava as linhas dos administradores até o fim da transação. Sem isso, duas estações rebaixando
+     * ou excluindo administradores ao mesmo tempo contam uma à outra e o hotel fica sem nenhum.
+     */
+    public void bloquearAdministradores() {
+        jdbc.queryForList("SELECT id FROM funcionario WHERE perfil = 'ADMINISTRADOR' ORDER BY id FOR UPDATE");
     }
 
     /** Reservas e hospedagens registradas pelo funcionário; a exclusão não pode apagar esse histórico. */
@@ -100,10 +101,19 @@ public class FuncionarioDAO {
         return jdbc.update("DELETE FROM funcionario WHERE id = ?", id);
     }
 
+    private static String normalizar(String matricula) {
+        return matricula == null ? "" : matricula.trim().toLowerCase();
+    }
+
     private int contar(String condicao, Object... argumentos) {
         return jdbc.queryForObject("SELECT COUNT(*) FROM funcionario WHERE " + condicao, Integer.class, argumentos);
     }
 
+    /**
+     * Reconstitui a linha como está gravada, sem as validações de formato de
+     * {@link Funcionario#informado}: uma linha antiga fora do formato atual não pode impedir a
+     * listagem nem o login de quem está nela.
+     */
     private static Funcionario ler(ResultSet rs) throws SQLException {
         return new Funcionario(rs.getInt("id"), rs.getString("matricula"), rs.getString("cpf"), rs.getString("nome"),
                 rs.getString("endereco"), rs.getString("cidade"), rs.getString("estado"), rs.getString("telefone"),
