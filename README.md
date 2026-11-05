@@ -18,7 +18,7 @@ A iteração 1 implementou os seis casos de uso alocados na listagem de casos de
 | UC08 | Registrar Reserva | administrador, recepcionista | 1 |
 | UC10 | Realizar Check-in, com e sem reserva | administrador, recepcionista | 1 |
 
-Na iteração 2 também foi entregue o lançamento de consumo (UC11). Ficam para as próximas iterações: cadastro de hóspedes (UC06), alteração e cancelamento de reservas (UC09), check-out e pagamentos (UC12), comprovantes/extrato impresso (UC14), relatórios e a troca periódica de senha pelo próprio funcionário (RNF-8), que parte do UC02. O menu só mostra o que foi implementado.
+Na iteração 2 também foram entregues o lançamento de consumo (UC11) e o check-out com pagamento (UC12). Ficam para as próximas iterações: cadastro de hóspedes (UC06), alteração e cancelamento de reservas (UC09), comprovantes/extrato impresso (UC14), relatórios e a troca periódica de senha pelo próprio funcionário (RNF-8), que parte do UC02. O menu só mostra o que foi implementado.
 
 ## Iteração 2 — UC05: itens de consumo e serviços
 
@@ -39,6 +39,18 @@ O UC05 segue as mesmas camadas dos demais cadastros: `ItemConsumo`, `ItemConsumo
 A migração `db/migracoes/003_consumo.sql` (idempotente, sem apagar dados) acrescenta `consumo.valor_total`, preenchido para lançamentos antigos, e `consumo.funcionario_id`. O lançamento trava as linhas da hospedagem e da conta (`SELECT ... FOR UPDATE`), a mesma trava usada pelo check-out (UC12).
 
 Testes: `mvn test -Dtest='ConsumoIT,ConsumoDominioTest'` e `TelasE2E#recepcionistaLancaConsumoPelaTela`.
+
+## Iteração 2 — UC12: realizar check-out
+
+**Atendimento → Check-out**, em três passos numa tela (RNF-12): localizar a hospedagem, conferir diárias + consumos + total, escolher a forma (dinheiro, pix, cartão de crédito ou débito) e confirmar. Antes da confirmação nada é gravado. A confirmação, numa única transação, grava o pagamento e a data/hora de saída, fecha a conta, encerra a hospedagem e deixa o quarto DISPONIVEL. O total é recalculado na confirmação; se diferir do conferido (consumo lançado ou virada de dia), a operação é recusada.
+
+**Regra de diárias (decisão da equipe, `RegraDiarias`):** conta-se o número de noites — dias de calendário entre a data de entrada e a data da saída efetiva, sem considerar horário — com mínimo de uma diária. Saída no mesmo dia cobra 1; saída antecipada cobra só as noites usadas; atraso cobra as noites efetivas, sem multa nem acréscimo por horário. O valor da diária é o preservado na conta no check-in.
+
+**Concorrência:** lançamento e check-out travam as mesmas linhas (`hospedagem`, `conta_hospedagem` e, no check-out, `quarto`). Um consumo que chega durante o check-out espera e encontra a conta fechada; uma segunda confirmação encontra a hospedagem encerrada, e o `UNIQUE` de `pagamento` impede cobrança duplicada.
+
+A migração `db/migracoes/004_checkout.sql` acrescenta `conta_hospedagem.fechada_em` e a tabela `pagamento`.
+
+Testes: `mvn test -Dtest='CheckOutIT,CheckOutDominioTest'` e `TelasE2E#recepcionistaLancaConsumoEConcluiCheckOutPelasTelas`.
 
 ## Tecnologia e organização (MVC)
 
