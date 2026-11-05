@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SessaoTest {
-    static final Funcionario RECEPCIONISTA = new Funcionario(2, "recep01", "0", "Rui", LocalDate.now(), Perfil.RECEPCIONISTA);
+    static final Funcionario RECEPCIONISTA = new Funcionario(2, "recep01", "000.000.002-72", "Rui Recepcionista", null, null, null, null, null, LocalDate.now(), Perfil.RECEPCIONISTA);
 
     @Test
     void semSessaoTodaOperacaoEhNegada() {

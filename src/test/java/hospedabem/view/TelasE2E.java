@@ -17,6 +17,7 @@ import java.time.LocalDate;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -71,6 +72,7 @@ class TelasE2E {
         assertTrue(robo.exibeTexto("Recepcionista"));
         assertTrue(robo.desabilitado("Tipos de quarto"));
         assertTrue(robo.desabilitado("Quartos"));
+        assertTrue(robo.desabilitado("Funcionários"));
         robo.capturar("recepcionista-sem-cadastros");
 
         robo.clicar("Sair");
@@ -239,5 +241,79 @@ class TelasE2E {
         assertEquals("Informe ao menos um hóspede.", robo.aviso());
         assertTrue(robo.avisoForaDaRolagem());
         robo.capturar("erro-visivel-na-etapa-do-quarto");
+    }
+
+    @Test
+    void administradorCadastraFuncionarioDelegaPerfilEORecemCadastradoEntraNoSistema() {
+        entrar("admin01", "Admin@123");
+        robo.clicar("Funcionários");
+        assertEquals(2, robo.linhasDaTabela());
+
+        // Inclusão com perfil de recepcionista e senha inicial.
+        robo.escrever("Matrícula", "marta01");
+        robo.escrever("CPF", "000.000.003-53");
+        robo.escrever("Nome", "Marta Teste Nunes");
+        robo.escrever("Endereço", "Rua Fictícia, 300");
+        robo.escrever("Cidade", "Campo Grande");
+        robo.escrever("Estado (UF)", "MS");
+        robo.escrever("Telefone", "(67) 90000-0003");
+        robo.escrever("E-mail", "marta@exemplo.test");
+        robo.escreverData("Data de contratação", HOJE);
+        robo.escolher("Perfil", p -> p.toString().equals("RECEPCIONISTA"));
+        robo.escrever("Senha", "Marta@2026");
+        robo.clicar("Salvar");
+        assertEquals("Funcionário marta01 gravado como recepcionista.", robo.aviso());
+        assertEquals(3, robo.linhasDaTabela());
+        robo.capturar("funcionario-cadastrado");
+
+        // Matrícula duplicada: mensagem compreensível e os dados digitados continuam no formulário.
+        robo.escrever("Matrícula", "recep01");
+        robo.escrever("CPF", "123.456.789-09");
+        robo.escrever("Nome", "Bruno Teste Dias");
+        robo.escreverData("Data de contratação", HOJE);
+        robo.escrever("Senha", "Bruno@2026");
+        robo.clicar("Salvar");
+        assertEquals("Já existe funcionário com a matrícula recep01.", robo.aviso());
+        assertEquals("Bruno Teste Dias", robo.conteudo("Nome"));
+        assertEquals("123.456.789-09", robo.conteudo("CPF"));
+        robo.capturar("funcionario-matricula-duplicada");
+
+        // CPF duplicado, em outra grafia do mesmo número.
+        robo.escrever("Matrícula", "bruno01");
+        robo.escrever("CPF", "00000000353");
+        robo.clicar("Salvar");
+        assertEquals("Já existe funcionário com o CPF 000.000.003-53.", robo.aviso());
+
+        // Delegação do perfil de administrador pela tela.
+        robo.clicar("Limpar formulário");
+        robo.escreverNoCampoComDica("Matrícula, nome ou CPF", "marta01");
+        robo.clicar("Buscar funcionário");
+        assertEquals(1, robo.linhasDaTabela());
+        robo.selecionarLinha(0);
+        robo.escolher("Perfil", p -> p.toString().equals("ADMINISTRADOR"));
+        robo.clicar("Salvar");
+        assertEquals("Funcionário marta01 gravado como administrador.", robo.aviso());
+        assertEquals("ADMINISTRADOR", consultar("SELECT perfil FROM funcionario WHERE matricula = 'marta01'"));
+        robo.capturar("funcionario-perfil-delegado");
+
+        // Exclusão de quem tem reserva registrada é recusada, sem apagar o histórico.
+        robo.escreverNoCampoComDica("Matrícula, nome ou CPF", "recep01");
+        robo.clicar("Buscar funcionário");
+        robo.selecionarLinha(0);
+        robo.clicar("Excluir");
+        assertTrue(robo.aviso().contains("não pode ser excluído: há 1 reserva(s)/hospedagem(ns)"), robo.aviso());
+        assertEquals("1", consultar("SELECT COUNT(*) FROM reserva WHERE situacao = 'CONFIRMADA'"));
+        robo.capturar("funcionario-exclusao-com-vinculo");
+
+        // Somente o hash é persistido e a nova administradora entra no sistema com matrícula e senha.
+        assertEquals("1", consultar("SELECT COUNT(*) FROM funcionario WHERE matricula = 'marta01' "
+                + "AND senha_hash LIKE 'pbkdf2$210000$%' AND senha_hash NOT LIKE '%Marta@2026%'"));
+        robo.clicar("Sair");
+        entrar("marta01", "Marta@2026");
+        assertTrue(robo.exibeTexto("Administrador"));
+        assertFalse(robo.desabilitado("Funcionários"));
+        robo.clicar("Funcionários");
+        assertEquals(3, robo.linhasDaTabela());
+        robo.capturar("funcionario-recem-criado-autenticado");
     }
 }
