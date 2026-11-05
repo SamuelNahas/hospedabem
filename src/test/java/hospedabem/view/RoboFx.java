@@ -5,10 +5,10 @@ import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.ButtonBase;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.DialogPane;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Button;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableView;
@@ -89,6 +89,14 @@ final class RoboFx {
         });
     }
 
+    /** Texto que está no campo, para conferir que uma recusa não apagou o que foi digitado. */
+    String conteudo(String rotulo) {
+        return naFx(() -> {
+            Node campo = campo(rotulo);
+            return (campo instanceof DatePicker d ? d.getEditor() : (TextInputControl) campo).getText();
+        });
+    }
+
     void escreverData(String rotulo, LocalDate data) {
         escrever(rotulo, Campos.texto(data));
     }
@@ -121,6 +129,47 @@ final class RoboFx {
             return null;
         });
         aguardar();
+    }
+
+    /**
+     * Clica um botão que abre a confirmação modal e responde a ela. O {@code showAndWait} da
+     * confirmação bloqueia a thread do JavaFX num laço de eventos aninhado, então o clique não pode
+     * ser esperado como em {@link #clicar}: ele é postado e a resposta é dada de dentro desse laço.
+     */
+    void clicarEConfirmar(String texto, ButtonType resposta) {
+        ButtonBase botao = naFx(() -> botao(texto));
+        if (naFx(botao::isDisabled)) throw new AssertionError("Botão desabilitado: " + texto);
+        FutureTask<Void> clique = new FutureTask<>(() -> {
+            botao.fire();
+            return null;
+        });
+        Platform.runLater(clique);
+        long limite = System.currentTimeMillis() + LIMITE_MS;
+        while (!clique.isDone()) {
+            if (System.currentTimeMillis() > limite)
+                throw new AssertionError("A confirmação de \"" + texto + "\" não foi concluída a tempo");
+            naFx(() -> responder(resposta));
+            try {
+                Thread.sleep(20);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        aguardar();
+    }
+
+    /** Aciona o botão pedido na confirmação aberta, se houver uma. Roda na thread do JavaFX. */
+    private static boolean responder(ButtonType resposta) {
+        for (Window janela : Window.getWindows()) {
+            if (!janela.isShowing() || janela.getScene() == null) continue;
+            if (janela.getScene().getRoot() instanceof DialogPane painel
+                    && painel.getButtonTypes().contains(resposta)) {
+                ((ButtonBase) painel.lookupButton(resposta)).fire();
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Responde ao diálogo modal na thread gráfica e aguarda a operação resultante terminar. */
