@@ -29,6 +29,7 @@ public class TelaPrincipal extends BorderPane {
     private final VBox area = new VBox();
     private final List<Button> navegacao = new ArrayList<>();
 
+    /** Monta a navegação da sessão e desabilita os cadastros administrativos para recepcionistas. */
     public TelaPrincipal(ConfigurableApplicationContext ctx, Funcionario funcionario) {
         boolean admin = funcionario.perfil() == Perfil.ADMINISTRADOR;
         Label marca = new Label("HospedaBem");

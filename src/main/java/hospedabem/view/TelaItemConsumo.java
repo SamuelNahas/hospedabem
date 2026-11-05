@@ -21,6 +21,7 @@ public class TelaItemConsumo extends Pagina {
     private final Button salvar = Campos.botao("Salvar", "botao-primario");
     private ItemConsumo selecionado;
 
+    /** Monta o cadastro e conecta busca, seleção e manutenção às operações assíncronas. */
     public TelaItemConsumo(ControladorItemConsumo controlador) {
         super("Itens de consumo e serviços", "Catálogo de itens e serviços disponíveis para as hospedagens.");
         this.controlador = controlador;
@@ -51,6 +52,7 @@ public class TelaItemConsumo extends Pagina {
         Tarefa.executar(salvar, aviso, controlador::listar, lista -> tabela.getItems().setAll(lista));
     }
 
+    /** Preenche o formulário para alteração ou limpa os campos quando não há item selecionado. */
     private void selecionar(ItemConsumo item) {
         selecionado = item;
         codigo.setText(item == null ? "" : item.codigo());
@@ -60,6 +62,7 @@ public class TelaItemConsumo extends Pagina {
         if (item == null) tabela.getSelectionModel().clearSelection();
     }
 
+    /** Valida os campos antes de incluir ou alterar o item fora da thread gráfica. */
     private void salvar() {
         ItemConsumo item;
         try {
@@ -81,6 +84,7 @@ public class TelaItemConsumo extends Pagina {
         });
     }
 
+    /** Exige um item selecionado e confirmação antes de solicitar a exclusão. */
     private void excluir(Button origem) {
         if (selecionado == null) {
             aviso.erro("Selecione um item na lista.");

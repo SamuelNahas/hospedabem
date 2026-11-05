@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.util.Locale;
 
 public record ItemConsumo(int id, String codigo, String descricao, String categoria, BigDecimal preco) {
+    /** Normaliza o cadastro e recusa campos inválidos ou preços que exijam arredondamento. */
     public ItemConsumo {
         codigo = texto(codigo == null ? null : codigo.toUpperCase(Locale.ROOT), "Código", 20);
         descricao = texto(descricao, "Descrição", 120);
@@ -20,6 +21,7 @@ public record ItemConsumo(int id, String codigo, String descricao, String catego
         }
     }
 
+    /** Remove espaços externos e valida a presença e o tamanho do campo informado. */
     private static String texto(String valor, String nome, int limite) {
         if (valor == null || valor.isBlank()) throw new NegocioException(nome + " é obrigatório(a).");
         String normalizado = valor.trim();

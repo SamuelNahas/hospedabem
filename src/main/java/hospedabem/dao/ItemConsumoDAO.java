@@ -22,6 +22,7 @@ public class ItemConsumoDAO {
                         rs.getString("categoria"), rs.getBigDecimal("preco")));
     }
 
+    /** Busca pelo código normalizado; códigos nulos ou inexistentes não retornam item. */
     public Optional<ItemConsumo> buscarPorCodigo(String codigo) {
         return jdbc.query("SELECT * FROM item_consumo WHERE codigo = ?", (rs, i) ->
                 new ItemConsumo(rs.getInt("id"), rs.getString("codigo"), rs.getString("descricao"),

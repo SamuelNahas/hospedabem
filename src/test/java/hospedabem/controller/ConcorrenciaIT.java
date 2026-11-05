@@ -90,6 +90,7 @@ class ConcorrenciaIT extends IntegracaoBase {
                 "SELECT COUNT(*) FROM reserva WHERE tipo_quarto_id = ?", t.id()));
     }
 
+    /** Simula duas estações migrando o mesmo banco e verifica que a reserva existente é preservada. */
     @Test
     void duasEstacoesAtualizamBancoDaIteracaoUmSemConflito() throws Exception {
         for (int rodada = 0; rodada < 3; rodada++) {
