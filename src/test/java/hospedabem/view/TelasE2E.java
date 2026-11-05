@@ -5,7 +5,6 @@ import hospedabem.controller.Sessao;
 import hospedabem.controller.ControladorItemConsumo;
 import javafx.scene.control.ButtonType;
 import hospedabem.dao.InicializadorBanco;
-import javafx.scene.control.ButtonType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
