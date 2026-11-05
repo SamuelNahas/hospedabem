@@ -89,4 +89,15 @@ class ConcorrenciaIT extends IntegracaoBase {
         assertEquals(1, contar("SELECT COUNT(*) FROM hospedagem") + contar(
                 "SELECT COUNT(*) FROM reserva WHERE tipo_quarto_id = ?", t.id()));
     }
+
+    @Test
+    void duasEstacoesAtualizamBancoDaIteracaoUmSemConflito() throws Exception {
+        for (int rodada = 0; rodada < 3; rodada++) {
+            jdbc.execute("DROP TABLE consumo");
+            jdbc.execute("DROP TABLE item_consumo");
+            assertEquals(2, sucessosSimultaneos(List.of(
+                    inicializador::inicializarSeVazio, inicializador::inicializarSeVazio)));
+            assertEquals(1, contar("SELECT COUNT(*) FROM reserva WHERE codigo = 1001"));
+        }
+    }
 }
