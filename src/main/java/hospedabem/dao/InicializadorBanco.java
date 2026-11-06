@@ -30,7 +30,6 @@ public class InicializadorBanco {
             if (demonstracao) executar("db/demo.sql");
         }
         executar("db/migracoes/002_itens_consumo.sql");
-        executar("db/migracoes/003_consumo.sql");
         return vazio;
     }
 
