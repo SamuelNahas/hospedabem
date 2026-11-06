@@ -14,10 +14,14 @@ class ConsumoDominioTest {
     static final ItemConsumo AGUA = new ItemConsumo(1, "AGUA", "Água", "Frigobar", new BigDecimal("5.50"));
 
     static Hospedagem hospedagem() {
+        return hospedagem(SituacaoConta.ABERTA);
+    }
+
+    static Hospedagem hospedagem(SituacaoConta situacaoDaConta) {
         TipoQuarto tipo = new TipoQuarto(1, "STD", "Standard", 2, new BigDecimal("180.00"));
         Quarto q = new Quarto(1, 101, 1, tipo, SituacaoQuarto.OCUPADO, true);
         return Hospedagem.reconstituir(1, 5001, ENTRADA, LocalDate.of(2026, 11, 5), SituacaoHospedagem.ATIVA, null, q,
-                new ContaDaHospedagem(1, SituacaoConta.ABERTA, new BigDecimal("180.00")));
+                new ContaDaHospedagem(1, situacaoDaConta, new BigDecimal("180.00")));
     }
 
     @Test
@@ -34,10 +38,7 @@ class ConsumoDominioTest {
 
     @Test
     void contaFechadaRecusaLancamento() {
-        TipoQuarto tipo = new TipoQuarto(1, "STD", "Standard", 2, new BigDecimal("180.00"));
-        Hospedagem h = Hospedagem.reconstituir(1, 5001, ENTRADA, LocalDate.of(2026, 11, 5), SituacaoHospedagem.ATIVA,
-                null, new Quarto(1, 101, 1, tipo, SituacaoQuarto.OCUPADO, true),
-                new ContaDaHospedagem(1, SituacaoConta.FECHADA, new BigDecimal("180.00")));
+        Hospedagem h = hospedagem(SituacaoConta.FECHADA);
         assertThrows(NegocioException.class, () -> h.lancarConsumo(AGUA, 1, ENTRADA));
     }
 }

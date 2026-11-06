@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -28,10 +30,6 @@ class ConsumoIT extends IntegracaoBase {
         agua = itens.incluir(new ItemConsumo(0, "AGUA", "Água mineral", "Frigobar", new BigDecimal("5.50")));
         h = checkInSemReserva(std, 101, 2, CARLOS);
         logarComo("recep01");
-    }
-
-    int idFuncionario(String matricula) {
-        return funcionarioDAO.buscarCredencial(matricula).orElseThrow().funcionario().id();
     }
 
 
@@ -69,11 +67,35 @@ class ConsumoIT extends IntegracaoBase {
         logarComo("admin01");
         itens.alterar(new ItemConsumo(agua.id(), "AGUA", "Água mineral", "Frigobar", new BigDecimal("9.99")));
         consumos.lancar(h.getCodigo(), "AGUA", 1);
+        itens.alterar(new ItemConsumo(agua.id(), "AGUA", "Água com gás", "Frigobar", new BigDecimal("9.99")));
         var lancados = consumos.localizar(h.getCodigo()).getConta().getConsumos();
         assertEquals(new BigDecimal("11.00"), lancados.get(0).valorTotal());
+        assertEquals("Água mineral", lancados.get(1).descricaoItem());
         assertEquals(new BigDecimal("9.99"), lancados.get(1).valorTotal());
-        assertEquals(new BigDecimal("20.99"), lancados.stream().map(Consumo::valorTotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add));
+        assertEquals(new BigDecimal("20.99"), Consumo.somar(lancados));
+        assertEquals(2, contar("SELECT COUNT(*) FROM consumo WHERE valor_total = preco_unitario * quantidade"));
+    }
+
+    @Test
+    void reinicioDeOutraEstacaoNaoTravaATabelaDeConsumo() throws Exception {
+        try (Connection leitora = jdbc.getDataSource().getConnection()) {
+            leitora.setAutoCommit(false);
+            leitora.createStatement().execute("LOCK TABLE consumo IN ACCESS SHARE MODE");
+            assertTimeoutPreemptively(Duration.ofSeconds(5), () -> inicializador.inicializarSeVazio());
+            leitora.rollback();
+        }
+    }
+
+    @Test
+    void maiorLancamentoAceitoCabeNoBancoETotalNaoPodeSerGravadoDivergente() {
+        logarComo("admin01");
+        itens.incluir(new ItemConsumo(0, "CARO", "Item caro", "Serviço", new BigDecimal("99999999.99")));
+        logarComo("recep01");
+        Consumo c = consumos.lancar(h.getCodigo(), "CARO", Consumo.QUANTIDADE_MAXIMA);
+        assertEquals(new BigDecimal("99899999990.01"), c.valorTotal());
+        assertEquals(c.valorTotal(), jdbc.queryForObject("SELECT valor_total FROM consumo", BigDecimal.class));
+        assertThrows(RuntimeException.class, () -> jdbc.update("UPDATE consumo SET valor_total = 1"));
+        assertThrows(RuntimeException.class, () -> jdbc.update("UPDATE consumo SET quantidade = 1000"));
     }
 
     @Test
