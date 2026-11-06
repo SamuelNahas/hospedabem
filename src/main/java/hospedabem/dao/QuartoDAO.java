@@ -40,10 +40,6 @@ public class QuartoDAO {
         return jdbc.query(SELECT + " WHERE q.id = ? FOR UPDATE OF q", MAPA, id).stream().findFirst();
     }
 
-    public Optional<Quarto> buscarPorId(int id) {
-        return jdbc.query(SELECT + " WHERE q.id = ?", MAPA, id).stream().findFirst();
-    }
-
     public List<Quarto> listar() {
         return jdbc.query(SELECT + " ORDER BY q.numero", MAPA);
     }

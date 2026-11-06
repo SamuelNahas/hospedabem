@@ -18,7 +18,7 @@ A iteração 1 implementou os seis casos de uso alocados na listagem de casos de
 | UC08 | Registrar Reserva | administrador, recepcionista | 1 |
 | UC10 | Realizar Check-in, com e sem reserva | administrador, recepcionista | 1 |
 
-Na iteração 2 também foi entregue o lançamento de consumo (UC11). Ficam para as próximas iterações: cadastro de hóspedes (UC06), alteração e cancelamento de reservas (UC09), check-out e pagamentos (UC12), comprovantes/extrato impresso (UC14), relatórios e a troca periódica de senha pelo próprio funcionário (RNF-8), que parte do UC02. O menu só mostra o que foi implementado.
+Ficam para as próximas iterações: cadastro de hóspedes (UC06), alteração e cancelamento de reservas (UC09), consumos, check-out, pagamentos, comprovantes e relatórios, e a troca periódica de senha pelo próprio funcionário (RNF-8), que parte do UC02. O menu só mostra o que foi implementado.
 
 ## Iteração 2 — UC05: itens de consumo e serviços
 
@@ -31,14 +31,6 @@ Na inicialização, `db/migracoes/002_itens_consumo.sql` é aplicado tanto a ban
 A tabela `consumo` prepara a integração com o UC11: cada lançamento referencia uma conta e um item e preserva o preço unitário aplicado. Alterar o preço do catálogo não recalcula lançamentos antigos; excluir um item referenciado é recusado. **A tela e a operação de lançar consumo pertencem ao UC11 e ainda não estão implementadas.** Os testes criam lançamentos fictícios diretamente no PostgreSQL para verificar essa proteção.
 
 O UC05 segue as mesmas camadas dos demais cadastros: `ItemConsumo`, `ItemConsumoDAO`, `ServicoItemConsumo`, `ControladorItemConsumo` e `TelaItemConsumo`. Os testes focados podem ser executados com `mvn test -Dtest=ItemConsumoIT` e `mvn test -Dtest='TelasE2E#administradorGerenciaItensDeConsumoPelaTela'`; ambos usam exclusivamente `hospedabem_test`.
-
-## Iteração 2 — UC11: lançar consumo/serviço
-
-**Atendimento → Lançar consumo** (recepcionista e administrador). Selecione a hospedagem ativa, veja os lançamentos da conta, escolha o item do catálogo e a quantidade (1 a 999). Cada lançamento grava data/hora, preço unitário aplicado e total; alterar o catálogo depois não muda lançamentos antigos. Só são aceitos lançamentos em hospedagem ATIVA com conta ABERTA. Camadas: `Consumo` / `Hospedagem.lancarConsumo` → `ConsumoDAO` → `ServicoConsumo` → `ControladorConsumo` → `TelaConsumo`.
-
-A migração `db/migracoes/003_consumo.sql` (idempotente, sem apagar dados) acrescenta `consumo.valor_total`, preenchido para lançamentos antigos, e `consumo.funcionario_id`. O lançamento trava as linhas da hospedagem e da conta (`SELECT ... FOR UPDATE`), a mesma trava usada pelo check-out (UC12).
-
-Testes: `mvn test -Dtest='ConsumoIT,ConsumoDominioTest'` e `TelasE2E#recepcionistaLancaConsumoPelaTela`.
 
 ## Tecnologia e organização (MVC)
 

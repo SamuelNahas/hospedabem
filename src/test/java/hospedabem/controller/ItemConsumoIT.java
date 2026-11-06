@@ -122,8 +122,8 @@ class ItemConsumoIT extends IntegracaoBase {
         var hospedagem = checkInSemReserva(tipos.buscar("STD").orElseThrow(), 101, 2, CARLOS);
         // Fixture do UC11: neste UC05 ainda não existe operação de lançamento pela interface.
         int consumo = jdbc.queryForObject("""
-                INSERT INTO consumo (conta_hospedagem_id, item_consumo_id, quantidade, preco_unitario, valor_total)
-                VALUES (?, ?, 2, 5.50, 11.00) RETURNING id""", Integer.class, hospedagem.getConta().getId(), item.id());
+                INSERT INTO consumo (conta_hospedagem_id, item_consumo_id, quantidade, preco_unitario)
+                VALUES (?, ?, 2, 5.50) RETURNING id""", Integer.class, hospedagem.getConta().getId(), item.id());
         itens.alterar(new ItemConsumo(item.id(), "AGUA", "Água", "Frigobar", new BigDecimal("9.00")));
         assertEquals(new BigDecimal("9.00"), itens.buscar("AGUA").orElseThrow().preco());
         assertEquals(new BigDecimal("5.50"), jdbc.queryForObject(
