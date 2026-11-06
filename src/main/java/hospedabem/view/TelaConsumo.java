@@ -12,8 +12,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 
-import java.math.BigDecimal;
-
 /** UC11: localizar a hospedagem ativa e lançar itens do catálogo na conta. */
 public class TelaConsumo extends Pagina {
     private final ControladorConsumo controlador;
@@ -33,6 +31,7 @@ public class TelaConsumo extends Pagina {
     private final Label conta = new Label("Selecione uma hospedagem na lista.");
     private final Button lancar = Campos.botao("Lançar", "botao-primario");
     private Integer codigoSelecionado;
+    private String cabecalhoDaConta = "";
 
     public TelaConsumo(ControladorConsumo controlador) {
         super("Lançar consumo/serviço", "Registre itens e serviços consumidos durante uma hospedagem ativa.");
@@ -41,9 +40,7 @@ public class TelaConsumo extends Pagina {
         item.setPromptText("Selecione o item do catálogo");
         lancar.setOnAction(e -> lancar());
         lancar.setDisable(true);
-        hospedagens.getSelectionModel().selectedItemProperty().addListener((obs, antes, r) -> {
-            if (r != null) localizar(r.codigo());
-        });
+        hospedagens.getSelectionModel().selectedItemProperty().addListener((obs, antes, r) -> selecionar(r));
         getChildren().addAll(
                 Campos.cartao("Hospedagens ativas", hospedagens),
                 Campos.cartao("Conta da hospedagem", conta, lancamentos),
@@ -57,20 +54,38 @@ public class TelaConsumo extends Pagina {
         Tarefa.executar(item, aviso, controlador::listarItens, l -> item.getItems().setAll(l));
     }
 
-    private void localizar(int codigo) {
-        Tarefa.executar(hospedagens, aviso, () -> controlador.localizar(codigo), this::mostrar);
+    /** Nada pode ser lançado até a conta da hospedagem selecionada terminar de carregar. */
+    private void selecionar(ResumoHospedagem r) {
+        codigoSelecionado = null;
+        lancar.setDisable(true);
+        lancamentos.getItems().clear();
+        if (r == null) {
+            conta.setText("Selecione uma hospedagem na lista.");
+            return;
+        }
+        conta.setText("Carregando a conta da hospedagem " + r.codigo() + "...");
+        Tarefa.executar(hospedagens, aviso, () -> controlador.localizar(r.codigo()), h -> {
+            if (hospedagens.getSelectionModel().getSelectedItem() == r) mostrar(h);
+        });
     }
 
     private void mostrar(Hospedagem h) {
         codigoSelecionado = h.getCodigo();
-        BigDecimal soma = h.getConta().getConsumos().stream().map(Consumo::valorTotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        conta.setText("Hospedagem " + h.getCodigo() + " · Quarto " + h.getQuarto().getNumero() + " · conta "
-                + h.getConta().getSituacao() + " · consumos: " + Campos.moeda(soma));
+        cabecalhoDaConta = "Hospedagem " + h.getCodigo() + " · Quarto " + h.getQuarto().getNumero() + " · conta "
+                + h.getConta().getSituacao();
         lancamentos.getItems().setAll(h.getConta().getConsumos());
+        atualizarTotal();
         lancar.setDisable(false);
     }
 
+    private void atualizarTotal() {
+        conta.setText(cabecalhoDaConta + " · consumos: " + Campos.moeda(Consumo.somar(lancamentos.getItems())));
+    }
+
+    /**
+     * Só o lançamento roda na tarefa: o consumo gravado é acrescentado à lista da tela, sem reler a
+     * conta, para uma falha posterior não ser confundida com falha do lançamento.
+     */
     private void lancar() {
         int qtd;
         ItemConsumo escolhido = item.getValue();
@@ -78,18 +93,16 @@ public class TelaConsumo extends Pagina {
             if (codigoSelecionado == null) throw new NegocioException("Selecione uma hospedagem na lista.");
             if (escolhido == null) throw new NegocioException("Selecione um item do catálogo.");
             qtd = Campos.inteiro(quantidade.getText(), "Quantidade");
-            Consumo.exigirQuantidade(qtd);
         } catch (NegocioException e) {
             aviso.erro(e.getMessage());
             return;
         }
         int codigo = codigoSelecionado;
-        Tarefa.executar(lancar, aviso, () -> {
-            Consumo c = controlador.lancar(codigo, escolhido.codigo(), qtd);
-            return new Object[]{c, controlador.localizar(codigo)};
-        }, r -> {
-            Consumo c = (Consumo) r[0];
-            mostrar((Hospedagem) r[1]);
+        Tarefa.executar(lancar, aviso, () -> controlador.lancar(codigo, escolhido.codigo(), qtd), c -> {
+            if (Integer.valueOf(codigo).equals(codigoSelecionado)) {
+                lancamentos.getItems().add(c);
+                atualizarTotal();
+            }
             quantidade.setText("1");
             aviso.sucesso("Lançado: " + c.quantidade() + " × " + c.descricaoItem() + " = " + Campos.moeda(c.valorTotal()) + ".");
         });

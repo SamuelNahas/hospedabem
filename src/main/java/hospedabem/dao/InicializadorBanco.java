@@ -30,8 +30,15 @@ public class InicializadorBanco {
             if (demonstracao) executar("db/demo.sql");
         }
         executar("db/migracoes/002_itens_consumo.sql");
-        executar("db/migracoes/003_consumo.sql");
+        // ALTER TABLE trava a tabela inteira a cada execução: só roda enquanto a migração faltar.
+        if (!existe("SELECT 1 FROM information_schema.columns WHERE table_name = 'consumo' "
+                + "AND column_name = 'valor_total' AND is_generated = 'ALWAYS'"))
+            executar("db/migracoes/003_consumo.sql");
         return vazio;
+    }
+
+    private boolean existe(String consulta) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (" + consulta + ")", Boolean.class));
     }
 
     public void executar(String script) {

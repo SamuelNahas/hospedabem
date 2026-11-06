@@ -34,9 +34,9 @@ O UC05 segue as mesmas camadas dos demais cadastros: `ItemConsumo`, `ItemConsumo
 
 ## Iteração 2 — UC11: lançar consumo/serviço
 
-**Atendimento → Lançar consumo** (recepcionista e administrador). Selecione a hospedagem ativa, veja os lançamentos da conta, escolha o item do catálogo e a quantidade (1 a 999). Cada lançamento grava data/hora, preço unitário aplicado e total; alterar o catálogo depois não muda lançamentos antigos. Só são aceitos lançamentos em hospedagem ATIVA com conta ABERTA. Camadas: `Consumo` / `Hospedagem.lancarConsumo` → `ConsumoDAO` → `ServicoConsumo` → `ControladorConsumo` → `TelaConsumo`.
+**Atendimento → Lançar consumo** (recepcionista e administrador). Selecione a hospedagem ativa, veja os lançamentos da conta, escolha o item do catálogo e a quantidade (1 a 999). Cada lançamento grava data/hora, código, descrição e preço unitário aplicados, e o banco calcula o total; alterar o catálogo depois não muda lançamentos antigos. Só são aceitos lançamentos em hospedagem ATIVA com conta ABERTA. Camadas: `Consumo` / `Hospedagem.lancarConsumo` → `ConsumoDAO` → `ServicoConsumo` → `ControladorConsumo` → `TelaConsumo`.
 
-A migração `db/migracoes/003_consumo.sql` (idempotente, sem apagar dados) acrescenta `consumo.valor_total`, preenchido para lançamentos antigos, e `consumo.funcionario_id`. O lançamento trava as linhas da hospedagem e da conta (`SELECT ... FOR UPDATE`), a mesma trava usada pelo check-out (UC12).
+A migração `db/migracoes/003_consumo.sql` (sem apagar dados) acrescenta a `consumo`: `valor_total` como coluna gerada pelo banco (`preco_unitario * quantidade`, `NUMERIC(13,2)`, que comporta o maior lançamento aceito), o limite de 999 na quantidade, `funcionario_id` e o código e a descrição do item cobrados, preenchidos para lançamentos antigos. Como `ALTER TABLE` trava a tabela inteira, o `InicializadorBanco` só executa o script enquanto `valor_total` ainda não é coluna gerada; reiniciar uma estação não bloqueia os lançamentos das outras. O lançamento trava só as linhas da hospedagem e da conta (`SELECT ... FOR UPDATE OF h, c`), a mesma trava usada pelo check-out (UC12), e não relê o quarto nem os lançamentos anteriores.
 
 Testes: `mvn test -Dtest='ConsumoIT,ConsumoDominioTest'` e `TelasE2E#recepcionistaLancaConsumoPelaTela`.
 

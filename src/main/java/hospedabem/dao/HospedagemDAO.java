@@ -66,37 +66,37 @@ public class HospedagemDAO {
 
     /** Hospedagem com quarto, conta e consumos, sem bloqueio. */
     public Optional<Hospedagem> buscarPorCodigo(int codigo) {
-        return buscar(codigo, false);
+        return buscarLinha(codigo, "").map(l -> {
+            consumoDAO.listarPorConta(l.conta().getId()).forEach(l.conta()::adicionarRegistrado);
+            return l.reconstituir(quartoDAO.buscarPorId(l.quartoId()).orElseThrow());
+        });
     }
 
     /**
-     * Hospedagem com as linhas da hospedagem, da conta e do quarto travadas até o fim da transação.
-     * O lançamento de consumo (UC11) e o check-out (UC12) passam por aqui, então um espera o outro:
+     * Hospedagem e conta travadas até o fim da transação, sem quarto nem consumos: só o necessário
+     * para o lançamento (UC11). O check-out (UC12) trava as mesmas linhas, então um espera o outro:
      * nenhum consumo entra depois que o check-out leu o total, e nenhum check-out fecha a conta no
      * meio de um lançamento.
      */
-    public Optional<Hospedagem> buscarPorCodigoParaAtualizar(int codigo) {
-        return buscar(codigo, true);
+    public Optional<Hospedagem> buscarParaLancamento(int codigo) {
+        return buscarLinha(codigo, " FOR UPDATE OF h, c").map(l -> l.reconstituir(null));
     }
 
     private record Linha(int id, int codigo, LocalDateTime entrada, LocalDate saidaPrevista,
                          SituacaoHospedagem situacao, LocalDateTime saida, int quartoId, ContaDaHospedagem conta) {
+        Hospedagem reconstituir(Quarto quarto) {
+            return Hospedagem.reconstituir(id, codigo, entrada, saidaPrevista, situacao, saida, quarto, conta);
+        }
     }
 
-    private Optional<Hospedagem> buscar(int codigo, boolean bloquear) {
-        return jdbc.query(SELECT + (bloquear ? " FOR UPDATE OF h, c" : ""), (rs, i) -> {
+    private Optional<Linha> buscarLinha(int codigo, String trava) {
+        return jdbc.query(SELECT + trava, (rs, i) -> {
             Timestamp saida = rs.getTimestamp("data_hora_saida");
             return new Linha(rs.getInt("id"), rs.getInt("codigo"), rs.getTimestamp("data_hora_entrada").toLocalDateTime(),
                     rs.getDate("data_saida_prevista").toLocalDate(), SituacaoHospedagem.valueOf(rs.getString("situacao")),
                     saida == null ? null : saida.toLocalDateTime(), rs.getInt("quarto_id"),
                     new ContaDaHospedagem(rs.getInt("c_id"), SituacaoConta.valueOf(rs.getString("c_situacao")),
                             rs.getBigDecimal("c_valor_diaria")));
-        }, codigo).stream().findFirst().map(l -> {
-            Quarto quarto = (bloquear ? quartoDAO.buscarPorIdParaAtualizar(l.quartoId()) : quartoDAO.buscarPorId(l.quartoId()))
-                    .orElseThrow();
-            consumoDAO.listarPorConta(l.conta().getId()).forEach(l.conta()::adicionarRegistrado);
-            return Hospedagem.reconstituir(l.id(), l.codigo(), l.entrada(), l.saidaPrevista(), l.situacao(), l.saida(),
-                    quarto, l.conta());
-        });
+        }, codigo).stream().findFirst();
     }
 }
