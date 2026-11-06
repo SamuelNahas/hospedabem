@@ -3,23 +3,15 @@ package hospedabem.model;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import static hospedabem.model.ConsumoDominioTest.AGUA;
+import static hospedabem.model.ConsumoDominioTest.ENTRADA;
+import static hospedabem.model.ConsumoDominioTest.hospedagem;
 import static org.junit.jupiter.api.Assertions.*;
 
 /** Regras do UC11 e do UC12 no modelo, sem banco. */
 class CheckOutDominioTest {
-    static final LocalDateTime ENTRADA = LocalDateTime.of(2026, 11, 2, 14, 0);
-    static final ItemConsumo AGUA = new ItemConsumo(1, "AGUA", "Água", "Frigobar", new BigDecimal("5.50"));
-
-    static Hospedagem hospedagem() {
-        TipoQuarto tipo = new TipoQuarto(1, "STD", "Standard", 2, new BigDecimal("180.00"));
-        Quarto q = new Quarto(1, 101, 1, tipo, SituacaoQuarto.OCUPADO, true);
-        return Hospedagem.reconstituir(1, 5001, ENTRADA, LocalDate.of(2026, 11, 5), SituacaoHospedagem.ATIVA, null, q,
-                new ContaDaHospedagem(1, SituacaoConta.ABERTA, new BigDecimal("180.00")));
-    }
-
     @Test
     void diariasContamNoitesComMinimoDeUma() {
         assertEquals(1, RegraDiarias.contar(ENTRADA, ENTRADA.plusHours(3)));            // mesmo dia
@@ -65,5 +57,15 @@ class CheckOutDominioTest {
         assertEquals(SituacaoHospedagem.ATIVA, h.getSituacao());
         assertEquals(SituacaoConta.ABERTA, h.getConta().getSituacao());
         assertEquals(SituacaoQuarto.OCUPADO, h.getQuarto().getSituacao());
+    }
+
+    @Test
+    void confirmarSemConferirPedeAConferenciaETotalAcimaDoLimiteERecusado() {
+        Hospedagem h = hospedagem();
+        assertEquals("Confira o extrato antes de confirmar o pagamento.", assertThrows(NegocioException.class,
+                () -> h.encerrar(FormaPagamento.PIX, null, ENTRADA.plusDays(1))).getMessage());
+        ItemConsumo caro = new ItemConsumo(2, "CARO", "Caro", "Serviço", new BigDecimal("99999999.99"));
+        for (int i = 0; i < 101; i++) h.lancarConsumo(caro, Consumo.QUANTIDADE_MAXIMA, ENTRADA);
+        assertThrows(NegocioException.class, () -> h.extrato(ENTRADA.plusDays(1)));
     }
 }

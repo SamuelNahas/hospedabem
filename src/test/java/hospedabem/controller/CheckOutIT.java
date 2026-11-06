@@ -43,10 +43,6 @@ class CheckOutIT extends IntegracaoBase {
         logarComo("recep01");
     }
 
-    int idFuncionario(String matricula) {
-        return funcionarioDAO.buscarCredencial(matricula).orElseThrow().funcionario().id();
-    }
-
     @Test
     void checkOutExigeSessaoDeRecepcionistaOuAdministrador() {
         sessao.encerrar();

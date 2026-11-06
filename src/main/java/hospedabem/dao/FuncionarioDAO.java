@@ -113,10 +113,10 @@ public class FuncionarioDAO {
      * Redefinição pelo administrador: grava só o hash e marca a senha como provisória, para o
      * funcionário trocá-la no próximo acesso (RNF-8).
      */
-    public int atualizarSenha(int id, String senhaHash) {
-        return jdbc.update("UPDATE funcionario SET senha_hash = ?, senha_alterada_em = now(), senha_provisoria = TRUE "
+    public int atualizarSenha(int id, String senhaHash, LocalDateTime agora) {
+        return jdbc.update("UPDATE funcionario SET senha_hash = ?, senha_alterada_em = ?, senha_provisoria = TRUE "
                 + "WHERE id = ?",
-                senhaHash, id);
+                senhaHash, agora, id);
     }
 
     public int excluir(int id) {

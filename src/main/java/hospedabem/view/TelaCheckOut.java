@@ -17,18 +17,8 @@ import javafx.scene.control.TableView;
  */
 public class TelaCheckOut extends Pagina {
     private final ControladorCheckOut controlador;
-    private final TableView<ResumoHospedagem> hospedagens = Campos.tabela(
-            Campos.coluna("Hospedagem", ResumoHospedagem::codigo),
-            Campos.coluna("Quarto", ResumoHospedagem::numeroQuarto),
-            Campos.coluna("Hóspedes", ResumoHospedagem::hospedes),
-            Campos.coluna("Entrada", r -> Campos.DATA_HORA.format(r.entrada())),
-            Campos.coluna("Saída prevista", r -> Campos.texto(r.saidaPrevista())));
-    private final TableView<Consumo> consumos = Campos.tabela(
-            Campos.coluna("Data/hora", c -> Campos.DATA_HORA.format(c.dataHora())),
-            Campos.coluna("Item", c -> c.codigoItem() + " - " + c.descricaoItem()),
-            Campos.coluna("Qtd.", Consumo::quantidade),
-            Campos.coluna("Unitário", c -> Campos.moeda(c.precoUnitario())),
-            Campos.coluna("Total", c -> Campos.moeda(c.valorTotal())));
+    private final TableView<ResumoHospedagem> hospedagens = Campos.tabelaDeHospedagens();
+    private final TableView<Consumo> consumos = Campos.tabelaDeConsumos();
     private final Label diarias = new Label("Selecione uma hospedagem e clique em Conferir conta.");
     private final Label subtotalConsumos = new Label();
     private final Label total = new Label();
@@ -76,7 +66,10 @@ public class TelaCheckOut extends Pagina {
             aviso.erro("Selecione uma hospedagem na lista.");
             return;
         }
+        // A tabela continua clicável durante a conferência: um resultado que chega depois de trocar a
+        // seleção é descartado, para não confirmar a hospedagem errada.
         Tarefa.executar(conferir, aviso, () -> controlador.conferir(r.codigo()), e -> {
+            if (hospedagens.getSelectionModel().getSelectedItem() != r) return;
             codigo = r.codigo();
             extrato = e;
             diarias.setText("Diárias: " + e.quantidadeDiarias() + " × " + Campos.moeda(e.valorDiaria()) + " = "

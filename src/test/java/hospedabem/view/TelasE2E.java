@@ -416,6 +416,9 @@ class TelasE2E {
         entrar("marta01", "Marta@2026");
         // RNF-8: a senha definida no cadastro é provisória; a troca é exigida antes do menu.
         assertTrue(robo.exibeTexto("Sua senha venceu ou foi definida pelo administrador. Defina uma nova senha para continuar."));
+        robo.clicar("Sair");
+        assertTrue(robo.exibeTexto("Sistema de hospedagem"));
+        entrar("marta01", "Marta@2026");
         robo.escrever("Senha atual", "Marta@2026");
         robo.escrever("Nova senha", "Propria2026");
         robo.escrever("Confirme a nova senha", "Outra2026");

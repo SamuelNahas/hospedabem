@@ -5,6 +5,7 @@ import javax.crypto.spec.PBEKeySpec;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.Base64;
 
 public final class Senha {
@@ -22,6 +23,11 @@ public final class Senha {
         Base64.Encoder b64 = Base64.getEncoder();
         return "pbkdf2$" + ITERACOES + "$" + b64.encodeToString(salt) + "$"
                 + b64.encodeToString(derivar(senha, salt, ITERACOES));
+    }
+
+    /** Zera a senha digitada assim que ela não é mais necessária. */
+    public static void apagar(char[] senha) {
+        if (senha != null) Arrays.fill(senha, '\0');
     }
 
     public static boolean confere(char[] senha, String hashArmazenado) {

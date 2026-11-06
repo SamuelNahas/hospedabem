@@ -21,6 +21,13 @@ class PoliticaDeSenhaTest {
     }
 
     @Test
+    void espacosNaoContamNoMinimoDeCaracteres() {
+        assertThrows(NegocioException.class, () -> PoliticaDeSenha.exigirValida("        1a".toCharArray()));
+        assertThrows(NegocioException.class, () -> PoliticaDeSenha.exigirValida("Senha 12".toCharArray()));
+        PoliticaDeSenha.exigirValida("Senha 123".toCharArray());
+    }
+
+    @Test
     void senhaSemLetraOuSemNumeroEhRecusada() {
         assertThrows(NegocioException.class, () -> PoliticaDeSenha.exigirValida("12345678".toCharArray()));
         assertThrows(NegocioException.class, () -> PoliticaDeSenha.exigirValida("senhasenha".toCharArray()));
