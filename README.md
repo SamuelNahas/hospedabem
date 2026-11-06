@@ -18,7 +18,7 @@ A iteração 1 implementou os seis casos de uso alocados na listagem de casos de
 | UC08 | Registrar Reserva | administrador, recepcionista | 1 |
 | UC10 | Realizar Check-in, com e sem reserva | administrador, recepcionista | 1 |
 
-Na iteração 2 também foram entregues o lançamento de consumo (UC11), o check-out com pagamento (UC12) e a troca periódica de senha (RNF-8). Ficam para as próximas iterações: cadastro de hóspedes (UC06), alteração e cancelamento de reservas (UC09), comprovantes/extrato impresso (UC14) e relatórios. O menu só mostra o que foi implementado.
+Na iteração 2 também foram entregues o lançamento de consumo (UC11) e o check-out com pagamento (UC12). Ficam para as próximas iterações: cadastro de hóspedes (UC06), alteração e cancelamento de reservas (UC09), comprovantes/extrato impresso (UC14), relatórios e a troca periódica de senha pelo próprio funcionário (RNF-8), que parte do UC02. O menu só mostra o que foi implementado.
 
 ## Iteração 2 — UC05: itens de consumo e serviços
 
@@ -51,14 +51,6 @@ Testes: `mvn test -Dtest='ConsumoIT,ConsumoDominioTest'` e `TelasE2E#recepcionis
 A migração `db/migracoes/004_checkout.sql` acrescenta `conta_hospedagem.fechada_em` e a tabela `pagamento`.
 
 Testes: `mvn test -Dtest='CheckOutIT,CheckOutDominioTest'` e `TelasE2E#recepcionistaLancaConsumoEConcluiCheckOutPelasTelas`.
-
-## Iteração 2 — RNF-8: troca e renovação de senha
-
-**Política (decisão da equipe, `PoliticaDeSenha`):** ao menos 8 caracteres, com letra e número; validade de **90 dias** a partir de `senha_alterada_em` (vence exatamente ao completar o prazo); a nova senha deve ser confirmada e diferente da atual. Senha definida pelo administrador no cadastro ou na redefinição é **provisória** e deve ser trocada no primeiro acesso.
-
-Com a senha vencida, o login leva direto à tela **Trocar senha**; até a troca, todos os controladores recusam operações (inclusive chamadas diretas), exceto a própria troca. A troca também está no menu lateral. Só o hash PBKDF2 é gravado. A migração `db/migracoes/005_senha.sql` acrescenta `funcionario.senha_provisoria`. Em bancos existentes, contas cuja `senha_alterada_em` tem mais de 90 dias serão obrigadas a trocar a senha no próximo login.
-
-Testes: `mvn test -Dtest='TrocaSenhaIT,PoliticaDeSenhaTest'`.
 
 ## Tecnologia e organização (MVC)
 
