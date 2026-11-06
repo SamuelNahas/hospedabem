@@ -30,8 +30,8 @@ public class TelaConsumo extends Pagina {
     private final TextField quantidade = new TextField("1");
     private final Label conta = new Label("Selecione uma hospedagem na lista.");
     private final Button lancar = Campos.botao("Lançar", "botao-primario");
-    private Integer codigoSelecionado;
-    private String cabecalhoDaConta = "";
+    /** Hospedagem cuja conta está na tela; {@code null} enquanto nenhuma terminou de carregar. */
+    private Hospedagem exibida;
 
     public TelaConsumo(ControladorConsumo controlador) {
         super("Lançar consumo/serviço", "Registre itens e serviços consumidos durante uma hospedagem ativa.");
@@ -56,7 +56,7 @@ public class TelaConsumo extends Pagina {
 
     /** Nada pode ser lançado até a conta da hospedagem selecionada terminar de carregar. */
     private void selecionar(ResumoHospedagem r) {
-        codigoSelecionado = null;
+        exibida = null;
         lancar.setDisable(true);
         lancamentos.getItems().clear();
         if (r == null) {
@@ -70,16 +70,16 @@ public class TelaConsumo extends Pagina {
     }
 
     private void mostrar(Hospedagem h) {
-        codigoSelecionado = h.getCodigo();
-        cabecalhoDaConta = "Hospedagem " + h.getCodigo() + " · Quarto " + h.getQuarto().getNumero() + " · conta "
-                + h.getConta().getSituacao();
+        exibida = h;
         lancamentos.getItems().setAll(h.getConta().getConsumos());
-        atualizarTotal();
+        atualizarResumoDaConta();
         lancar.setDisable(false);
     }
 
-    private void atualizarTotal() {
-        conta.setText(cabecalhoDaConta + " · consumos: " + Campos.moeda(Consumo.somar(lancamentos.getItems())));
+    private void atualizarResumoDaConta() {
+        conta.setText("Hospedagem " + exibida.getCodigo() + " · Quarto " + exibida.getQuarto().getNumero()
+                + " · conta " + exibida.getConta().getSituacao()
+                + " · consumos: " + Campos.moeda(Consumo.somar(lancamentos.getItems())));
     }
 
     /**
@@ -90,18 +90,18 @@ public class TelaConsumo extends Pagina {
         int qtd;
         ItemConsumo escolhido = item.getValue();
         try {
-            if (codigoSelecionado == null) throw new NegocioException("Selecione uma hospedagem na lista.");
+            if (exibida == null) throw new NegocioException("Selecione uma hospedagem na lista.");
             if (escolhido == null) throw new NegocioException("Selecione um item do catálogo.");
             qtd = Campos.inteiro(quantidade.getText(), "Quantidade");
         } catch (NegocioException e) {
             aviso.erro(e.getMessage());
             return;
         }
-        int codigo = codigoSelecionado;
-        Tarefa.executar(lancar, aviso, () -> controlador.lancar(codigo, escolhido.codigo(), qtd), c -> {
-            if (Integer.valueOf(codigo).equals(codigoSelecionado)) {
+        Hospedagem destino = exibida;
+        Tarefa.executar(lancar, aviso, () -> controlador.lancar(destino.getCodigo(), escolhido.codigo(), qtd), c -> {
+            if (exibida == destino) {
                 lancamentos.getItems().add(c);
-                atualizarTotal();
+                atualizarResumoDaConta();
             }
             quantidade.setText("1");
             aviso.sucesso("Lançado: " + c.quantidade() + " × " + c.descricaoItem() + " = " + Campos.moeda(c.valorTotal()) + ".");
