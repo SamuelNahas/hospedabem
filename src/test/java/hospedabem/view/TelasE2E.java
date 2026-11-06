@@ -414,6 +414,17 @@ class TelasE2E {
                 + "AND senha_hash LIKE 'pbkdf2$210000$%' AND senha_hash NOT LIKE '%Marta@2026%'"));
         robo.clicar("Sair");
         entrar("marta01", "Marta@2026");
+        // RNF-8: a senha definida no cadastro é provisória; a troca é exigida antes do menu.
+        assertTrue(robo.exibeTexto("Sua senha venceu ou foi definida pelo administrador. Defina uma nova senha para continuar."));
+        robo.escrever("Senha atual", "Marta@2026");
+        robo.escrever("Nova senha", "Propria2026");
+        robo.escrever("Confirme a nova senha", "Outra2026");
+        robo.clicar("Trocar senha");
+        assertEquals("A confirmação não confere com a nova senha.", robo.aviso());
+        robo.escrever("Senha atual", "Marta@2026");
+        robo.escrever("Nova senha", "Propria2026");
+        robo.escrever("Confirme a nova senha", "Propria2026");
+        robo.clicar("Trocar senha");
         assertTrue(robo.exibeTexto("Administrador"));
         assertFalse(robo.desabilitado("Funcionários"));
         robo.clicar("Funcionários");
