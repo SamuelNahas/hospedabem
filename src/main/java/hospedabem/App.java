@@ -22,9 +22,9 @@ public class App {
     /**
      * Relógio alinhado ao do banco: entrada, lançamentos, saída e validade de senha gravados por
      * estações diferentes usam a mesma referência, mesmo com o relógio de uma estação adiantado.
-     * Sem banco, usa o relógio local; o erro de conexão aparece na abertura da tela.
-     * ponytail: a diferença é medida uma vez, na inicialização; ajuste do relógio da estação com o
-     * aplicativo aberto só vale depois de reiniciar.
+     * Sem banco, usa o relógio local; o erro de conexão aparece na abertura da tela. A diferença é
+     * medida uma vez, na inicialização: um ajuste no relógio da estação com o aplicativo aberto só
+     * vale depois de reiniciar.
      */
     @Bean
     Clock relogio(JdbcTemplate jdbc) {

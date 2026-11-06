@@ -1,8 +1,6 @@
 package hospedabem.view;
 
-import hospedabem.model.Consumo;
 import hospedabem.model.NegocioException;
-import hospedabem.model.ResumoHospedagem;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.Node;
 import javafx.scene.control.Alert;
@@ -155,25 +153,5 @@ public final class Campos {
         t.setPlaceholder(new Label("Nenhum registro."));
         t.setPrefHeight(220);
         return t;
-    }
-
-    /** Hospedagens ativas, como listadas no lançamento de consumo (UC11) e no check-out (UC12). */
-    public static TableView<ResumoHospedagem> tabelaDeHospedagens() {
-        return tabela(
-                coluna("Hospedagem", ResumoHospedagem::codigo),
-                coluna("Quarto", ResumoHospedagem::numeroQuarto),
-                coluna("Hóspedes", ResumoHospedagem::hospedes),
-                coluna("Entrada", r -> DATA_HORA.format(r.entrada())),
-                coluna("Saída prevista", r -> texto(r.saidaPrevista())));
-    }
-
-    /** Lançamentos da conta, como mostrados no UC11 e na conferência do UC12. */
-    public static TableView<Consumo> tabelaDeConsumos() {
-        return tabela(
-                coluna("Data/hora", c -> DATA_HORA.format(c.dataHora())),
-                coluna("Item", c -> c.codigoItem() + " - " + c.descricaoItem()),
-                coluna("Qtd.", Consumo::quantidade),
-                coluna("Unitário", c -> moeda(c.precoUnitario())),
-                coluna("Total", c -> moeda(c.valorTotal())));
     }
 }

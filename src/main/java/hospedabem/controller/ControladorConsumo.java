@@ -3,7 +3,6 @@ package hospedabem.controller;
 import hospedabem.model.Consumo;
 import hospedabem.model.Hospedagem;
 import hospedabem.model.ItemConsumo;
-import hospedabem.model.Perfil;
 import hospedabem.model.ResumoHospedagem;
 import hospedabem.service.ServicoConsumo;
 import org.springframework.stereotype.Component;
@@ -22,22 +21,22 @@ public class ControladorConsumo {
     }
 
     public List<ResumoHospedagem> listarHospedagensAtivas() {
-        sessao.exigir(Perfil.RECEPCIONISTA, Perfil.ADMINISTRADOR);
+        sessao.exigirQualquerPerfil();
         return servico.listarHospedagensAtivas();
     }
 
     public List<ItemConsumo> listarItens() {
-        sessao.exigir(Perfil.RECEPCIONISTA, Perfil.ADMINISTRADOR);
+        sessao.exigirQualquerPerfil();
         return servico.listarItens();
     }
 
     public Hospedagem localizar(int codigoHospedagem) {
-        sessao.exigir(Perfil.RECEPCIONISTA, Perfil.ADMINISTRADOR);
+        sessao.exigirQualquerPerfil();
         return servico.localizar(codigoHospedagem);
     }
 
     public Consumo lancar(int codigoHospedagem, String codigoItem, int quantidade) {
-        int funcionario = sessao.exigir(Perfil.RECEPCIONISTA, Perfil.ADMINISTRADOR).id();
+        int funcionario = sessao.exigirQualquerPerfil().id();
         return servico.lancar(codigoHospedagem, codigoItem, quantidade, funcionario);
     }
 }

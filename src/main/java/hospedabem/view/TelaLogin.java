@@ -27,22 +27,13 @@ public class TelaLogin extends StackPane {
             char[] s = senha.getText().toCharArray();
             senha.clear();
             Tarefa.executar(entrar, aviso, () -> controlador.autenticar(m, s), funcionario -> {
-                if (!controlador.senhaVencida()) {
-                    getScene().setRoot(new TelaPrincipal(contexto, funcionario));
-                    return;
-                }
-                // RNF-8: com a senha vencida, só a troca é liberada antes do menu.
                 var cena = getScene();
-                TelaTrocaSenha troca = new TelaTrocaSenha(controlador, true,
-                        () -> cena.setRoot(new TelaPrincipal(contexto, funcionario)));
-                Button sair = Campos.botao("Sair", "botao-sair");
-                sair.setOnAction(ev -> {
-                    controlador.sair();
-                    cena.setRoot(new TelaLogin(contexto));
-                });
-                VBox raiz = new VBox(troca.getAviso(), troca, Campos.acoes(sair));
-                raiz.getStyleClass().add("conteudo");
-                getScene().setRoot(raiz);
+                Runnable abrirMenu = () -> cena.setRoot(new TelaPrincipal(contexto, funcionario));
+                if (controlador.senhaVencida())
+                    cena.setRoot(TelaTrocaSenha.obrigatoria(controlador, abrirMenu,
+                            () -> cena.setRoot(new TelaLogin(contexto))));
+                else
+                    abrirMenu.run();
             });
         });
 
