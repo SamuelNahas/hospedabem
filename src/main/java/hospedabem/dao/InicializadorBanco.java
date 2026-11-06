@@ -30,7 +30,21 @@ public class InicializadorBanco {
             if (demonstracao) executar("db/demo.sql");
         }
         executar("db/migracoes/002_itens_consumo.sql");
+        executarSeFaltar("db/migracoes/003_consumo.sql", "SELECT 1 FROM information_schema.columns "
+                + "WHERE table_name = 'consumo' AND column_name = 'valor_total' AND is_generated = 'ALWAYS'");
+        executarSeFaltar("db/migracoes/004_checkout.sql", "SELECT 1 FROM information_schema.columns "
+                + "WHERE table_name = 'pagamento' AND column_name = 'valor_total' AND numeric_precision = 15");
         return vazio;
+    }
+
+    /**
+     * Executa o script só enquanto {@code consultaDeAplicada} não encontra nada: ALTER TABLE trava a
+     * tabela inteira mesmo quando não muda nada, e as migrações rodam a cada inicialização de estação.
+     */
+    private void executarSeFaltar(String script, String consultaDeAplicada) {
+        boolean aplicada = Boolean.TRUE.equals(
+                jdbc.queryForObject("SELECT EXISTS (" + consultaDeAplicada + ")", Boolean.class));
+        if (!aplicada) executar(script);
     }
 
     public void executar(String script) {
