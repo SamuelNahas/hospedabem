@@ -44,7 +44,8 @@ public class ServicoConsumo {
     /** Localiza a hospedagem e sua conta com os lançamentos já persistidos. */
     @Transactional(readOnly = true)
     public Hospedagem localizar(int codigoHospedagem) {
-        Hospedagem h = exigirHospedagem(hospedagemDAO.buscarPorCodigo(codigoHospedagem), codigoHospedagem);
+        Hospedagem h = hospedagemDAO.buscarPorCodigo(codigoHospedagem)
+                .orElseThrow(() -> Hospedagem.naoLocalizada(codigoHospedagem));
         h.exigirAtiva();
         h.getConta().exigirAberta();
         return h;
@@ -52,19 +53,16 @@ public class ServicoConsumo {
 
     /**
      * Lança o item na conta. Trava hospedagem e conta (a mesma trava do check-out), relê o item no
-     * catálogo para aplicar o preço vigente e grava tudo ou nada.
+     * catálogo para aplicar o preço vigente e grava tudo ou nada. A quantidade é validada pelo
+     * {@link Consumo}.
      */
     @Transactional
     public Consumo lancar(int codigoHospedagem, String codigoItem, int quantidade, int funcionarioId) {
-        Consumo.exigirQuantidade(quantidade);
-        Hospedagem h = exigirHospedagem(hospedagemDAO.buscarPorCodigoParaAtualizar(codigoHospedagem), codigoHospedagem);
+        Hospedagem h = hospedagemDAO.buscarParaLancamento(codigoHospedagem)
+                .orElseThrow(() -> Hospedagem.naoLocalizada(codigoHospedagem));
         ItemConsumo item = itemDAO.buscarPorCodigo(codigoItem)
                 .orElseThrow(() -> new NegocioException("Item de consumo ou serviço não encontrado: " + codigoItem + "."));
         Consumo c = h.lancarConsumo(item, quantidade, LocalDateTime.now(relogio).truncatedTo(ChronoUnit.SECONDS));
         return c.comId(consumoDAO.inserir(h.getConta().getId(), item.id(), c, funcionarioId));
-    }
-
-    private static Hospedagem exigirHospedagem(java.util.Optional<Hospedagem> h, int codigo) {
-        return h.orElseThrow(() -> new NegocioException("Hospedagem não localizada: " + codigo + "."));
     }
 }
