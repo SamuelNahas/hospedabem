@@ -34,6 +34,8 @@ public class InicializadorBanco {
                 + "WHERE table_name = 'consumo' AND column_name = 'valor_total' AND is_generated = 'ALWAYS'");
         executarSeFaltar("db/migracoes/004_checkout.sql", "SELECT 1 FROM information_schema.columns "
                 + "WHERE table_name = 'pagamento' AND column_name = 'valor_total' AND numeric_precision = 15");
+        executarSeFaltar("db/migracoes/005_senha.sql", "SELECT 1 FROM information_schema.columns "
+                + "WHERE table_name = 'funcionario' AND column_name = 'senha_provisoria'");
         return vazio;
     }
 

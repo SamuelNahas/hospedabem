@@ -13,7 +13,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.LocalDate;
-import java.util.Arrays;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -60,7 +60,7 @@ public class ServicoFuncionario {
                         f.telefone(), f.email(), f.dataContratacao(), f.perfil());
             }));
         } finally {
-            apagar(senha);
+            Senha.apagar(senha);
         }
     }
 
@@ -103,12 +103,12 @@ public class ServicoFuncionario {
             String hash = Senha.gerarHash(senha);
             transacao.execute(status -> {
                 exigirAutorAdministrador(autor);
-                if (dao.atualizarSenha(id, hash) == 0)
+                if (dao.atualizarSenha(id, hash, LocalDateTime.now(relogio)) == 0)
                     throw new NegocioException("Funcionário não encontrado; a lista pode estar desatualizada.");
                 return null;
             });
         } finally {
-            apagar(senha);
+            Senha.apagar(senha);
         }
     }
 
@@ -155,9 +155,5 @@ public class ServicoFuncionario {
             throw new NegocioException("Já existe funcionário com a matrícula " + f.matricula()
                     + " ou com o CPF " + f.cpf() + ".");
         }
-    }
-
-    private static void apagar(char[] senha) {
-        if (senha != null) Arrays.fill(senha, '\0');
     }
 }

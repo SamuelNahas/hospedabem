@@ -26,8 +26,15 @@ public class TelaLogin extends StackPane {
             String m = matricula.getText();
             char[] s = senha.getText().toCharArray();
             senha.clear();
-            Tarefa.executar(entrar, aviso, () -> controlador.autenticar(m, s),
-                    funcionario -> getScene().setRoot(new TelaPrincipal(contexto, funcionario)));
+            Tarefa.executar(entrar, aviso, () -> controlador.autenticar(m, s), funcionario -> {
+                var cena = getScene();
+                Runnable abrirMenu = () -> cena.setRoot(new TelaPrincipal(contexto, funcionario));
+                if (controlador.senhaVencida())
+                    cena.setRoot(TelaTrocaSenha.obrigatoria(controlador, abrirMenu,
+                            () -> cena.setRoot(new TelaLogin(contexto))));
+                else
+                    abrirMenu.run();
+            });
         });
 
         Label marca = new Label("HospedaBem");

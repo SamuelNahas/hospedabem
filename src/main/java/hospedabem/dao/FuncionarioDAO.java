@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,14 +22,31 @@ public class FuncionarioDAO {
         this.jdbc = jdbc;
     }
 
-    public record Credencial(Funcionario funcionario, String senhaHash) {
+    public record Credencial(Funcionario funcionario, String senhaHash, LocalDateTime senhaAlteradaEm,
+                             boolean senhaProvisoria) {
     }
 
     /** A matrícula é gravada em minúsculas, então o login compara em minúsculas: "Maria01" entra. */
     public Optional<Credencial> buscarCredencial(String matricula) {
-        return jdbc.query("SELECT " + COLUNAS + ", senha_hash FROM funcionario WHERE lower(matricula) = ?",
-                (rs, i) -> new Credencial(ler(rs), rs.getString("senha_hash")), normalizar(matricula))
+        return jdbc.query("SELECT " + COLUNAS + ", senha_hash, senha_alterada_em, senha_provisoria FROM funcionario "
+                        + "WHERE lower(matricula) = ?",
+                (rs, i) -> new Credencial(ler(rs), rs.getString("senha_hash"),
+                        rs.getTimestamp("senha_alterada_em").toLocalDateTime(), rs.getBoolean("senha_provisoria")),
+                normalizar(matricula)).stream().findFirst();
+    }
+
+    public Optional<String> buscarHash(int id) {
+        return jdbc.query("SELECT senha_hash FROM funcionario WHERE id = ?", (rs, i) -> rs.getString(1), id)
                 .stream().findFirst();
+    }
+
+    /**
+     * Troca feita pelo próprio funcionário (RNF-8): só grava se o hash ainda for o conferido, marca
+     * a data da troca e retira a condição de provisória.
+     */
+    public int trocarSenhaPropria(int id, String hashConferido, String novoHash, LocalDateTime agora) {
+        return jdbc.update("UPDATE funcionario SET senha_hash = ?, senha_alterada_em = ?, senha_provisoria = FALSE "
+                + "WHERE id = ? AND senha_hash = ?", novoHash, agora, id, hashConferido);
     }
 
     public List<Funcionario> listar() {
@@ -78,8 +96,8 @@ public class FuncionarioDAO {
 
     public int inserir(Funcionario f, String senhaHash) {
         return jdbc.queryForObject("INSERT INTO funcionario (matricula, cpf, nome, endereco, cidade, estado, "
-                        + "telefone, email, data_contratacao, perfil, senha_hash) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id", Integer.class,
+                        + "telefone, email, data_contratacao, perfil, senha_hash, senha_provisoria) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE) RETURNING id", Integer.class,
                 f.matricula(), f.cpf(), f.nome(), f.endereco(), f.cidade(), f.estado(), f.telefone(), f.email(),
                 f.dataContratacao(), f.perfil().name(), senhaHash);
     }
@@ -91,10 +109,14 @@ public class FuncionarioDAO {
                 f.dataContratacao(), f.perfil().name(), f.id());
     }
 
-    /** Grava só o hash e registra a data da troca, usada pela renovação periódica (RNF-8). */
-    public int atualizarSenha(int id, String senhaHash) {
-        return jdbc.update("UPDATE funcionario SET senha_hash = ?, senha_alterada_em = now() WHERE id = ?",
-                senhaHash, id);
+    /**
+     * Redefinição pelo administrador: grava só o hash e marca a senha como provisória, para o
+     * funcionário trocá-la no próximo acesso (RNF-8).
+     */
+    public int atualizarSenha(int id, String senhaHash, LocalDateTime agora) {
+        return jdbc.update("UPDATE funcionario SET senha_hash = ?, senha_alterada_em = ?, senha_provisoria = TRUE "
+                + "WHERE id = ?",
+                senhaHash, agora, id);
     }
 
     public int excluir(int id) {
