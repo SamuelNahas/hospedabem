@@ -5,12 +5,9 @@ import hospedabem.model.Funcionario;
 import hospedabem.model.NegocioException;
 import hospedabem.model.PoliticaDeSenha;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 
 @Service
 public class ServicoAutenticacao {
@@ -18,16 +15,14 @@ public class ServicoAutenticacao {
 
     private final FuncionarioDAO funcionarioDAO;
     private final Clock relogio;
-    private final TransactionTemplate transacao;
 
-    public ServicoAutenticacao(FuncionarioDAO funcionarioDAO, Clock relogio, PlatformTransactionManager gerenciador) {
+    public ServicoAutenticacao(FuncionarioDAO funcionarioDAO, Clock relogio) {
         this.funcionarioDAO = funcionarioDAO;
         this.relogio = relogio;
-        this.transacao = new TransactionTemplate(gerenciador);
     }
 
-    /** Resultado do login: o funcionário e se a senha precisa ser renovada antes de operar (RNF-8). */
-    public record Acesso(Funcionario funcionario, boolean senhaVencida) {
+    /** Resultado do login: o funcionário e quando a senha dele vence (RNF-8). */
+    public record Acesso(Funcionario funcionario, LocalDateTime senhaVenceEm) {
     }
 
     public Acesso autenticar(String matricula, char[] senha) {
@@ -39,19 +34,18 @@ public class ServicoAutenticacao {
             boolean confere = Senha.confere(senha, credencial.map(FuncionarioDAO.Credencial::senhaHash).orElse(HASH_FICTICIO));
             if (credencial.isEmpty() || !confere) throw new NegocioException("Matrícula ou senha inválida.");
             FuncionarioDAO.Credencial c = credencial.get();
-            return new Acesso(c.funcionario(),
-                    PoliticaDeSenha.estaVencida(c.senhaAlteradaEm(), c.senhaProvisoria(), LocalDateTime.now(relogio)));
+            return new Acesso(c.funcionario(), PoliticaDeSenha.venceEm(c.senhaAlteradaEm(), c.senhaProvisoria()));
         } finally {
-            apagar(senha);
+            Senha.apagar(senha);
         }
     }
 
     /**
      * Troca da própria senha: valida confirmação e composição, confere a senha atual e grava só o
-     * hash, marcando {@code senha_alterada_em}. O hash PBKDF2 é calculado fora da transação; a
-     * gravação só acontece se o hash no banco ainda for o que foi conferido.
+     * hash, marcando {@code senha_alterada_em}. A gravação é um único UPDATE, que só acontece se o
+     * hash no banco ainda for o que foi conferido. Devolve o novo vencimento.
      */
-    public void trocarSenha(int funcionarioId, char[] atual, char[] nova, char[] confirmacao) {
+    public LocalDateTime trocarSenha(int funcionarioId, char[] atual, char[] nova, char[] confirmacao) {
         try {
             PoliticaDeSenha.exigirTroca(atual, nova, confirmacao);
             String hashAtual = funcionarioDAO.buscarHash(funcionarioId)
@@ -59,18 +53,13 @@ public class ServicoAutenticacao {
             if (!Senha.confere(atual, hashAtual)) throw new NegocioException("Senha atual incorreta.");
             String novoHash = Senha.gerarHash(nova);
             LocalDateTime agora = LocalDateTime.now(relogio);
-            transacao.executeWithoutResult(status -> {
-                if (funcionarioDAO.trocarSenhaPropria(funcionarioId, hashAtual, novoHash, agora) == 0)
-                    throw new NegocioException("A senha foi alterada por outra operação. Tente novamente.");
-            });
+            if (funcionarioDAO.trocarSenhaPropria(funcionarioId, hashAtual, novoHash, agora) == 0)
+                throw new NegocioException("A senha foi alterada por outra operação. Tente novamente.");
+            return PoliticaDeSenha.venceEm(agora, false);
         } finally {
-            apagar(atual);
-            apagar(nova);
-            apagar(confirmacao);
+            Senha.apagar(atual);
+            Senha.apagar(nova);
+            Senha.apagar(confirmacao);
         }
-    }
-
-    private static void apagar(char[] senha) {
-        if (senha != null) Arrays.fill(senha, '\0');
     }
 }

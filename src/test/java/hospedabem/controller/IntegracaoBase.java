@@ -62,6 +62,10 @@ abstract class IntegracaoBase {
     }
 
     /** Funcionário de matrícula exata, pela mesma busca que a tela usa. */
+    int idFuncionario(String matricula) {
+        return funcionarioDAO.buscarCredencial(matricula).orElseThrow().funcionario().id();
+    }
+
     Funcionario funcionario(String matricula) {
         return acharFuncionario(matricula).orElseThrow();
     }

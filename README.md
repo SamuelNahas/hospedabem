@@ -34,9 +34,9 @@ O UC05 segue as mesmas camadas dos demais cadastros: `ItemConsumo`, `ItemConsumo
 
 ## Iteração 2 — UC11: lançar consumo/serviço
 
-**Atendimento → Lançar consumo** (recepcionista e administrador). Selecione a hospedagem ativa, veja os lançamentos da conta, escolha o item do catálogo e a quantidade (1 a 999). Cada lançamento grava data/hora, preço unitário aplicado e total; alterar o catálogo depois não muda lançamentos antigos. Só são aceitos lançamentos em hospedagem ATIVA com conta ABERTA. Camadas: `Consumo` / `Hospedagem.lancarConsumo` → `ConsumoDAO` → `ServicoConsumo` → `ControladorConsumo` → `TelaConsumo`.
+**Atendimento → Lançar consumo** (recepcionista e administrador). Selecione a hospedagem ativa, veja os lançamentos da conta, escolha o item do catálogo e a quantidade (1 a 999). Cada lançamento grava data/hora, código, descrição e preço unitário aplicados, e o banco calcula o total; alterar o catálogo depois não muda lançamentos antigos. Só são aceitos lançamentos em hospedagem ATIVA com conta ABERTA. Camadas: `Consumo` / `Hospedagem.lancarConsumo` → `ConsumoDAO` → `ServicoConsumo` → `ControladorConsumo` → `TelaConsumo`.
 
-A migração `db/migracoes/003_consumo.sql` (idempotente, sem apagar dados) acrescenta `consumo.valor_total`, preenchido para lançamentos antigos, e `consumo.funcionario_id`. O lançamento trava as linhas da hospedagem e da conta (`SELECT ... FOR UPDATE`), a mesma trava usada pelo check-out (UC12).
+A migração `db/migracoes/003_consumo.sql` (sem apagar dados) acrescenta a `consumo`: `valor_total` como coluna gerada pelo banco (`preco_unitario * quantidade`, `NUMERIC(13,2)`, que comporta o maior lançamento aceito), o limite de 999 na quantidade, `funcionario_id` e o código e a descrição do item cobrados, preenchidos para lançamentos antigos. Como `ALTER TABLE` trava a tabela inteira, o `InicializadorBanco` só executa o script enquanto `valor_total` ainda não é coluna gerada; reiniciar uma estação não bloqueia os lançamentos das outras. O lançamento trava só as linhas da hospedagem e da conta (`SELECT ... FOR UPDATE OF h, c`), a mesma trava usada pelo check-out (UC12), e não relê o quarto nem os lançamentos anteriores.
 
 Testes: `mvn test -Dtest='ConsumoIT,ConsumoDominioTest'` e `TelasE2E#recepcionistaLancaConsumoPelaTela`.
 
@@ -48,7 +48,9 @@ Testes: `mvn test -Dtest='ConsumoIT,ConsumoDominioTest'` e `TelasE2E#recepcionis
 
 **Concorrência:** lançamento e check-out travam as mesmas linhas (`hospedagem`, `conta_hospedagem` e, no check-out, `quarto`). Um consumo que chega durante o check-out espera e encontra a conta fechada; uma segunda confirmação encontra a hospedagem encerrada, e o `UNIQUE` de `pagamento` impede cobrança duplicada.
 
-A migração `db/migracoes/004_checkout.sql` acrescenta `conta_hospedagem.fechada_em` e a tabela `pagamento`.
+**Relógio:** a data/hora de entrada, de saída e dos lançamentos vem do relógio da estação alinhado ao do banco (`App.relogio`, que mede a diferença na inicialização). Assim, uma estação com o relógio adiantado ou atrasado não produz saída "anterior à entrada" nem muda a contagem de diárias perto da meia-noite.
+
+A migração `db/migracoes/004_checkout.sql` acrescenta `conta_hospedagem.fechada_em` e a tabela `pagamento`, com valores em `NUMERIC(15,2)`; acima disso o extrato recusa com mensagem de negócio. Como a 003, ela só é executada enquanto falta.
 
 Testes: `mvn test -Dtest='CheckOutIT,CheckOutDominioTest'` e `TelasE2E#recepcionistaLancaConsumoEConcluiCheckOutPelasTelas`.
 
@@ -56,7 +58,7 @@ Testes: `mvn test -Dtest='CheckOutIT,CheckOutDominioTest'` e `TelasE2E#recepcion
 
 **Política (decisão da equipe, `PoliticaDeSenha`):** ao menos 8 caracteres, com letra e número; validade de **90 dias** a partir de `senha_alterada_em` (vence exatamente ao completar o prazo); a nova senha deve ser confirmada e diferente da atual. Senha definida pelo administrador no cadastro ou na redefinição é **provisória** e deve ser trocada no primeiro acesso.
 
-Com a senha vencida, o login leva direto à tela **Trocar senha**; até a troca, todos os controladores recusam operações (inclusive chamadas diretas), exceto a própria troca. A troca também está no menu lateral. Só o hash PBKDF2 é gravado. A migração `db/migracoes/005_senha.sql` acrescenta `funcionario.senha_provisoria`. Em bancos existentes, contas cuja `senha_alterada_em` tem mais de 90 dias serão obrigadas a trocar a senha no próximo login.
+Com a senha vencida, o login leva direto à tela **Trocar senha**, que também tem **Sair**; até a troca, todos os controladores recusam operações (inclusive chamadas diretas), exceto a própria troca. O vencimento é conferido a cada operação, então uma senha que completa 90 dias com a sessão aberta também passa a bloquear. A redefinição pelo administrador vale a partir do próximo login do funcionário: uma sessão já aberta em outra estação não é encerrada (o sistema não revoga sessões). Espaços não contam no mínimo de 8 caracteres. A troca também está no menu lateral. Só o hash PBKDF2 é gravado. A migração `db/migracoes/005_senha.sql` acrescenta `funcionario.senha_provisoria`. Em bancos existentes, contas cuja `senha_alterada_em` tem mais de 90 dias serão obrigadas a trocar a senha no próximo login.
 
 Testes: `mvn test -Dtest='TrocaSenhaIT,PoliticaDeSenhaTest'`.
 

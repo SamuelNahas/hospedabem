@@ -4,43 +4,53 @@ import hospedabem.model.Funcionario;
 import hospedabem.model.Perfil;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 
 @Component
 public class Sessao {
+    private final Clock relogio;
     private volatile Funcionario funcionario;
-    private volatile boolean senhaVencida;
+    /** Quando a senha do funcionário vence; {@code null} quando a sessão não controla validade. */
+    private volatile LocalDateTime senhaVenceEm;
+
+    public Sessao(Clock relogio) {
+        this.relogio = relogio;
+    }
 
     public Funcionario getFuncionario() {
         return funcionario;
     }
 
+    /** Conferido a cada operação: a senha que vence com a sessão aberta também bloqueia (RNF-8). */
     public boolean isSenhaVencida() {
-        return senhaVencida;
+        LocalDateTime vence = senhaVenceEm;
+        return vence != null && !LocalDateTime.now(relogio).isBefore(vence);
     }
 
     void iniciar(Funcionario f) {
-        iniciar(f, false);
+        iniciar(f, null);
     }
 
-    void iniciar(Funcionario f, boolean vencida) {
-        senhaVencida = vencida;
+    void iniciar(Funcionario f, LocalDateTime venceEm) {
+        senhaVenceEm = venceEm;
         funcionario = f;
     }
 
-    void senhaRenovada() {
-        senhaVencida = false;
+    void senhaRenovada(LocalDateTime venceEm) {
+        senhaVenceEm = venceEm;
     }
 
     public void encerrar() {
         funcionario = null;
-        senhaVencida = false;
+        senhaVenceEm = null;
     }
 
     /** Exige sessão com um dos perfis e senha em dia (RNF-8): senha vencida só permite a troca. */
     public Funcionario exigir(Perfil... permitidos) {
         Funcionario f = exigirAutenticado();
-        if (senhaVencida)
+        if (isSenhaVencida())
             throw new AcessoNegadoException("Senha vencida: troque a sua senha para continuar.");
         if (!Arrays.asList(permitidos).contains(f.perfil()))
             throw new AcessoNegadoException("Permissão insuficiente: operação restrita a " + Arrays.toString(permitidos) + ".");

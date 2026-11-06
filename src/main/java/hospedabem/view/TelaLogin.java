@@ -35,7 +35,12 @@ public class TelaLogin extends StackPane {
                 var cena = getScene();
                 TelaTrocaSenha troca = new TelaTrocaSenha(controlador, true,
                         () -> cena.setRoot(new TelaPrincipal(contexto, funcionario)));
-                VBox raiz = new VBox(troca.getAviso(), troca);
+                Button sair = Campos.botao("Sair", "botao-sair");
+                sair.setOnAction(ev -> {
+                    controlador.sair();
+                    cena.setRoot(new TelaLogin(contexto));
+                });
+                VBox raiz = new VBox(troca.getAviso(), troca, Campos.acoes(sair));
                 raiz.getStyleClass().add("conteudo");
                 getScene().setRoot(raiz);
             });

@@ -6,10 +6,8 @@ import hospedabem.dao.QuartoDAO;
 import hospedabem.model.Extrato;
 import hospedabem.model.FormaPagamento;
 import hospedabem.model.Hospedagem;
-import hospedabem.model.NegocioException;
 import hospedabem.model.Pagamento;
 import hospedabem.model.ResumoHospedagem;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,7 +40,8 @@ public class ServicoCheckOut {
     /** Extrato para conferência: diárias até agora e consumos lançados. */
     @Transactional(readOnly = true)
     public Extrato conferir(int codigoHospedagem) {
-        Hospedagem h = hospedagemDAO.buscarPorCodigo(codigoHospedagem).orElseThrow(() -> naoLocalizada(codigoHospedagem));
+        Hospedagem h = hospedagemDAO.buscarPorCodigo(codigoHospedagem)
+                .orElseThrow(() -> Hospedagem.naoLocalizada(codigoHospedagem));
         return h.extrato(agora());
     }
 
@@ -50,25 +49,18 @@ public class ServicoCheckOut {
      * Confirma o pagamento e conclui o check-out numa única transação: grava o pagamento, encerra a
      * hospedagem com a data/hora de saída, fecha a conta e libera o quarto. Trava a hospedagem, a
      * conta e o quarto primeiro, então um lançamento de consumo simultâneo espera e depois encontra
-     * a conta fechada, e uma segunda confirmação encontra a hospedagem encerrada.
+     * a conta fechada, e uma segunda confirmação encontra a hospedagem encerrada. O UNIQUE de
+     * {@code pagamento.conta_hospedagem_id} fica como última barreira no banco.
      */
     @Transactional
     public Pagamento confirmar(int codigoHospedagem, FormaPagamento forma, BigDecimal totalConferido, int funcionarioId) {
         Hospedagem h = hospedagemDAO.buscarPorCodigoParaAtualizar(codigoHospedagem)
-                .orElseThrow(() -> naoLocalizada(codigoHospedagem));
+                .orElseThrow(() -> Hospedagem.naoLocalizada(codigoHospedagem));
         Pagamento p = h.encerrar(forma, totalConferido, agora());
-        try {
-            pagamentoDAO.inserir(h.getConta().getId(), p, funcionarioId);
-        } catch (DuplicateKeyException e) {
-            throw new NegocioException("Esta conta já foi paga; o check-out não foi repetido.");
-        }
+        pagamentoDAO.inserir(h.getConta().getId(), p, funcionarioId);
         hospedagemDAO.encerrar(h);
         quartoDAO.atualizar(h.getQuarto());
         return p;
-    }
-
-    private static NegocioException naoLocalizada(int codigo) {
-        return new NegocioException("Hospedagem não localizada: " + codigo + ".");
     }
 
     private LocalDateTime agora() {

@@ -9,7 +9,8 @@ import java.util.Arrays;
  *
  * <p>Política decidida pela equipe (o RNF-8 não fixa prazo nem composição):
  * <ul>
- *   <li>Composição: ao menos {@value #MINIMO_DE_CARACTERES} caracteres, com pelo menos uma letra e um número.</li>
+ *   <li>Composição: ao menos {@value #MINIMO_DE_CARACTERES} caracteres sem contar espaços, com pelo menos uma
+ *       letra e um número.</li>
  *   <li>Validade: {@value #VALIDADE_EM_DIAS} dias contados de {@code senha_alterada_em}; a senha vence
  *       exatamente no instante em que esse prazo se completa.</li>
  *   <li>A senha definida pelo administrador (cadastro ou redefinição) é provisória e vence no primeiro acesso.</li>
@@ -25,20 +26,27 @@ public final class PoliticaDeSenha {
 
     public static void exigirValida(char[] senha) {
         if (senha == null || senha.length == 0) throw new NegocioException("Informe a senha do funcionário.");
-        if (senha.length < MINIMO_DE_CARACTERES)
-            throw new NegocioException("A senha deve ter ao menos " + MINIMO_DE_CARACTERES + " caracteres.");
+        int visiveis = 0;
         boolean letra = false;
         boolean digito = false;
         for (char c : senha) {
+            if (!Character.isWhitespace(c)) visiveis++;
             if (Character.isLetter(c)) letra = true;
             if (Character.isDigit(c)) digito = true;
         }
+        if (visiveis < MINIMO_DE_CARACTERES)
+            throw new NegocioException("A senha deve ter ao menos " + MINIMO_DE_CARACTERES
+                    + " caracteres, sem contar espaços.");
         if (!letra || !digito) throw new NegocioException("A senha deve conter ao menos uma letra e um número.");
     }
 
-    /** Vencida se provisória ou se já se passaram {@value #VALIDADE_EM_DIAS} dias da última troca. */
+    /** Instante em que a senha vence: já vencida se provisória, senão {@value #VALIDADE_EM_DIAS} dias após a troca. */
+    public static LocalDateTime venceEm(LocalDateTime alteradaEm, boolean provisoria) {
+        return provisoria ? LocalDateTime.MIN : alteradaEm.plusDays(VALIDADE_EM_DIAS);
+    }
+
     public static boolean estaVencida(LocalDateTime alteradaEm, boolean provisoria, LocalDateTime agora) {
-        return provisoria || !agora.isBefore(alteradaEm.plusDays(VALIDADE_EM_DIAS));
+        return !agora.isBefore(venceEm(alteradaEm, provisoria));
     }
 
     /** Confere os dados digitados na troca, antes de verificar a senha atual no banco. */

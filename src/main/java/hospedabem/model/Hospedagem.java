@@ -57,6 +57,10 @@ public class Hospedagem {
         this.codigo = codigo;
     }
 
+    public static NegocioException naoLocalizada(int codigo) {
+        return new NegocioException("Hospedagem não localizada: " + codigo + ".");
+    }
+
     public void exigirAtiva() {
         if (situacao != SituacaoHospedagem.ATIVA)
             throw new NegocioException("A hospedagem " + codigo + " está encerrada.");
@@ -81,8 +85,9 @@ public class Hospedagem {
      */
     public Pagamento encerrar(FormaPagamento forma, BigDecimal totalConferido, LocalDateTime agora) {
         if (forma == null) throw new NegocioException("Selecione a forma de pagamento.");
+        if (totalConferido == null) throw new NegocioException("Confira o extrato antes de confirmar o pagamento.");
         Extrato atual = extrato(agora);
-        if (totalConferido == null || atual.total().compareTo(totalConferido) != 0)
+        if (atual.total().compareTo(totalConferido) != 0)
             throw new NegocioException("O total da conta mudou desde a conferência (agora "
                     + atual.total().toPlainString() + "). Confira o extrato novamente antes de confirmar.");
         conta.fechar();

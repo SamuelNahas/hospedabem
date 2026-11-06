@@ -17,7 +17,7 @@ public class ControladorAutenticacao {
     /** Inicia a sessão; com senha vencida, só a troca de senha é liberada até a renovação. */
     public Funcionario autenticar(String matricula, char[] senha) {
         ServicoAutenticacao.Acesso acesso = servico.autenticar(matricula, senha);
-        sessao.iniciar(acesso.funcionario(), acesso.senhaVencida());
+        sessao.iniciar(acesso.funcionario(), acesso.senhaVenceEm());
         return acesso.funcionario();
     }
 
@@ -29,8 +29,7 @@ public class ControladorAutenticacao {
     /** RNF-8: troca da própria senha, permitida também com a senha vencida. */
     public void trocarSenha(char[] atual, char[] nova, char[] confirmacao) {
         Funcionario f = sessao.exigirAutenticado();
-        servico.trocarSenha(f.id(), atual, nova, confirmacao);
-        sessao.senhaRenovada();
+        sessao.senhaRenovada(servico.trocarSenha(f.id(), atual, nova, confirmacao));
     }
 
     public void sair() {
