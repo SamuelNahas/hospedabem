@@ -61,7 +61,12 @@ public class Hospedagem {
             throw new NegocioException("A hospedagem " + codigo + " está encerrada.");
     }
 
-    /** UC11: lançamento aceito somente em hospedagem ATIVA com conta ABERTA. */
+    /** Hospedagem em andamento: ativa e com a conta aberta para lançamentos (UC11) e cobrança (UC12). */
+    public void exigirContaAberta() {
+        exigirAtiva();
+        conta.exigirAberta();
+    }
+
     public Consumo lancarConsumo(ItemConsumo item, int quantidade, LocalDateTime agora) {
         exigirAtiva();
         return conta.lancar(item, quantidade, agora);

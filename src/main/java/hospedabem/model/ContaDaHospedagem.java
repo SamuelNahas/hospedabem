@@ -29,7 +29,6 @@ public class ContaDaHospedagem {
             throw new NegocioException("A conta desta hospedagem está fechada: não aceita lançamentos nem nova cobrança.");
     }
 
-    /** Lança um item com o preço atual do catálogo, somente em conta aberta. */
     Consumo lancar(ItemConsumo item, int quantidade, LocalDateTime agora) {
         exigirAberta();
         Consumo c = Consumo.de(item, quantidade, agora);
