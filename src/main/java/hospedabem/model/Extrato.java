@@ -6,7 +6,7 @@ import java.util.List;
 
 /** Composição do valor a pagar no check-out: diárias + consumos e serviços. */
 public record Extrato(int quantidadeDiarias, BigDecimal valorDiaria, BigDecimal valorDiarias,
-                      List<Consumo> consumos, BigDecimal valorConsumos, BigDecimal total, LocalDateTime calculadoEm) {
+                      List<Consumo> consumos, BigDecimal valorConsumos, BigDecimal total) {
     /** Maior total que cabe em {@code pagamento.valor_total} (NUMERIC(15,2)). */
     public static final BigDecimal TOTAL_MAXIMO = new BigDecimal("9999999999999.99");
 
@@ -22,7 +22,6 @@ public record Extrato(int quantidadeDiarias, BigDecimal valorDiaria, BigDecimal 
         int diarias = RegraDiarias.contar(entrada, saida);
         BigDecimal valorDiarias = valorDiaria.multiply(BigDecimal.valueOf(diarias));
         BigDecimal valorConsumos = Consumo.somar(consumos);
-        return new Extrato(diarias, valorDiaria, valorDiarias, consumos, valorConsumos,
-                valorDiarias.add(valorConsumos), saida);
+        return new Extrato(diarias, valorDiaria, valorDiarias, consumos, valorConsumos, valorDiarias.add(valorConsumos));
     }
 }
