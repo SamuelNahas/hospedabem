@@ -4,7 +4,12 @@ import hospedabem.model.Funcionario;
 import hospedabem.model.Perfil;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -16,14 +21,14 @@ class SessaoTest {
 
     @Test
     void semSessaoTodaOperacaoEhNegada() {
-        Sessao s = new Sessao();
+        Sessao s = new Sessao(Clock.systemDefaultZone());
         assertThrows(AcessoNegadoException.class, s::exigirQualquerPerfil);
         assertThrows(AcessoNegadoException.class, () -> s.exigir(Perfil.ADMINISTRADOR));
     }
 
     @Test
     void perfilForaDosPermitidosEhNegadoEPermitidoDevolveOFuncionario() {
-        Sessao s = new Sessao();
+        Sessao s = new Sessao(Clock.systemDefaultZone());
         s.iniciar(RECEPCIONISTA);
         var negado = assertThrows(AcessoNegadoException.class, () -> s.exigir(Perfil.ADMINISTRADOR));
         assertEquals("Permissão insuficiente: operação restrita a [ADMINISTRADOR].", negado.getMessage());
@@ -33,10 +38,26 @@ class SessaoTest {
 
     @Test
     void encerrarRemoveOFuncionario() {
-        Sessao s = new Sessao();
+        Sessao s = new Sessao(Clock.systemDefaultZone());
         s.iniciar(RECEPCIONISTA);
         s.encerrar();
         assertNull(s.getFuncionario());
         assertThrows(AcessoNegadoException.class, s::exigirQualquerPerfil);
+    }
+
+    @Test
+    void senhaQueVenceComASessaoAbertaPassaABloquearAsOperacoes() {
+        Instant[] agora = {Instant.parse("2026-11-06T12:00:00Z")};
+        Clock relogio = new Clock() {
+            public ZoneId getZone() { return ZoneOffset.UTC; }
+            public Clock withZone(ZoneId zona) { return this; }
+            public Instant instant() { return agora[0]; }
+        };
+        Sessao s = new Sessao(relogio);
+        s.iniciar(RECEPCIONISTA, LocalDateTime.ofInstant(agora[0], ZoneOffset.UTC).plusHours(1));
+        assertEquals(RECEPCIONISTA, s.exigir(Perfil.RECEPCIONISTA));
+        agora[0] = agora[0].plusSeconds(3600);
+        assertThrows(AcessoNegadoException.class, () -> s.exigir(Perfil.RECEPCIONISTA));
+        assertEquals(RECEPCIONISTA, s.exigirAutenticado());
     }
 }
