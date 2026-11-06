@@ -14,12 +14,12 @@ public class PagamentoDAO {
     }
 
     /** A restrição UNIQUE da conta impede um segundo pagamento da mesma conta (UC12). */
-    public int inserir(int contaId, Pagamento p, int funcionarioId) {
+    public void inserir(int contaId, Pagamento p, int funcionarioId) {
         Extrato e = p.extrato();
-        return jdbc.queryForObject("""
+        jdbc.update("""
                 INSERT INTO pagamento (conta_hospedagem_id, forma, quantidade_diarias, valor_diarias, valor_consumos,
                                        valor_total, confirmado_em, funcionario_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""", Integer.class,
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 contaId, p.forma().name(), e.quantidadeDiarias(), e.valorDiarias(), e.valorConsumos(), e.total(),
                 p.confirmadoEm(), funcionarioId);
     }

@@ -2,6 +2,10 @@ package hospedabem.model;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** Composição mínima da senha (UC02 e RNF-8). */
@@ -36,12 +40,10 @@ class PoliticaDeSenhaTest {
     }
 
     @Test
-    void senhaVenceExatamenteAoCompletarNoventaDiasOuSeForProvisoria() {
-        java.time.LocalDateTime troca = java.time.LocalDateTime.of(2026, 1, 1, 10, 0);
-        java.time.LocalDateTime limite = troca.plusDays(PoliticaDeSenha.VALIDADE_EM_DIAS);
-        org.junit.jupiter.api.Assertions.assertFalse(PoliticaDeSenha.estaVencida(troca, false, limite.minusSeconds(1)));
-        org.junit.jupiter.api.Assertions.assertTrue(PoliticaDeSenha.estaVencida(troca, false, limite));
-        org.junit.jupiter.api.Assertions.assertTrue(PoliticaDeSenha.estaVencida(troca, true, troca));
+    void senhaVenceNoventaDiasAposATrocaOuJaNoPrimeiroAcessoSeForProvisoria() {
+        LocalDateTime troca = LocalDateTime.of(2026, 1, 1, 10, 0);
+        assertEquals(troca.plusDays(PoliticaDeSenha.VALIDADE_EM_DIAS), PoliticaDeSenha.venceEm(troca, false));
+        assertFalse(troca.isBefore(PoliticaDeSenha.venceEm(troca, true)));
     }
 
     @Test

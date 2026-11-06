@@ -5,7 +5,6 @@ import java.util.Arrays;
 
 /**
  * Regras de senha, comuns à definição inicial (UC02) e à troca pelo próprio funcionário (RNF-8).
- * Ficam no modelo porque não dependem de banco nem de tela.
  *
  * <p>Política decidida pela equipe (o RNF-8 não fixa prazo nem composição):
  * <ul>
@@ -43,10 +42,6 @@ public final class PoliticaDeSenha {
     /** Instante em que a senha vence: já vencida se provisória, senão {@value #VALIDADE_EM_DIAS} dias após a troca. */
     public static LocalDateTime venceEm(LocalDateTime alteradaEm, boolean provisoria) {
         return provisoria ? LocalDateTime.MIN : alteradaEm.plusDays(VALIDADE_EM_DIAS);
-    }
-
-    public static boolean estaVencida(LocalDateTime alteradaEm, boolean provisoria, LocalDateTime agora) {
-        return !agora.isBefore(venceEm(alteradaEm, provisoria));
     }
 
     /** Confere os dados digitados na troca, antes de verificar a senha atual no banco. */

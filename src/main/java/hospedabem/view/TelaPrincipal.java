@@ -45,8 +45,7 @@ public class TelaPrincipal extends BorderPane {
                 ctx.getBean(ControladorDisponibilidade.class)));
         Button consumo = item("Lançar consumo", () -> new TelaConsumo(ctx.getBean(ControladorConsumo.class)));
         Button checkOut = item("Check-out", () -> new TelaCheckOut(ctx.getBean(ControladorCheckOut.class)));
-        Button trocarSenha = item("Trocar senha", () -> new TelaTrocaSenha(ctx.getBean(ControladorAutenticacao.class),
-                false, null));
+        Button trocarSenha = item("Trocar senha", () -> TelaTrocaSenha.voluntaria(ctx.getBean(ControladorAutenticacao.class)));
         Button tipos = item("Tipos de quarto", () -> new TelaTipoQuarto(ctx.getBean(ControladorTipoQuarto.class)));
         Button quartos = item("Quartos", () -> new TelaQuarto(ctx.getBean(ControladorQuarto.class),
                 ctx.getBean(ControladorDisponibilidade.class)));
