@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Conta aberta no check-in (UC10), que recebe os consumos (UC11) e é fechada no check-out (UC12). */
+/** Conta aberta no check-in (UC10), que recebe os consumos (UC11). */
 public class ContaDaHospedagem {
     private int id;
     private SituacaoConta situacao;
@@ -40,15 +40,6 @@ public class ContaDaHospedagem {
     /** Acrescenta um lançamento já gravado, ao reconstituir a conta. */
     public void adicionarRegistrado(Consumo c) {
         consumos.add(c);
-    }
-
-    Extrato extrato(LocalDateTime entrada, LocalDateTime saida) {
-        return Extrato.calcular(valorDiaria, consumos, entrada, saida);
-    }
-
-    void fechar() {
-        exigirAberta();
-        situacao = SituacaoConta.FECHADA;
     }
 
     public int getId() { return id; }
