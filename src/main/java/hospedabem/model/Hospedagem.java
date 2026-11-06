@@ -1,6 +1,5 @@
 package hospedabem.model;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -66,30 +65,6 @@ public class Hospedagem {
     public Consumo lancarConsumo(ItemConsumo item, int quantidade, LocalDateTime agora) {
         exigirAtiva();
         return conta.lancar(item, quantidade, agora);
-    }
-
-    /** UC12: diárias e consumos como se a saída fosse {@code saida}. */
-    public Extrato extrato(LocalDateTime saida) {
-        exigirAtiva();
-        conta.exigirAberta();
-        return conta.extrato(dataHoraEntrada, saida);
-    }
-
-    /**
-     * UC12: confirma o pagamento e conclui o check-out. Recalcula o total e recusa se ele diferir
-     * do que foi conferido na tela (consumo lançado ou virada de dia depois da conferência).
-     */
-    public Pagamento encerrar(FormaPagamento forma, BigDecimal totalConferido, LocalDateTime agora) {
-        if (forma == null) throw new NegocioException("Selecione a forma de pagamento.");
-        Extrato atual = extrato(agora);
-        if (totalConferido == null || atual.total().compareTo(totalConferido) != 0)
-            throw new NegocioException("O total da conta mudou desde a conferência (agora "
-                    + atual.total().toPlainString() + "). Confira o extrato novamente antes de confirmar.");
-        conta.fechar();
-        situacao = SituacaoHospedagem.ENCERRADA;
-        dataHoraSaida = agora;
-        quarto.liberar();
-        return new Pagamento(forma, atual, agora);
     }
 
     public int getId() { return id; }

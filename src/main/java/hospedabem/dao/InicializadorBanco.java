@@ -31,7 +31,6 @@ public class InicializadorBanco {
         }
         executar("db/migracoes/002_itens_consumo.sql");
         executar("db/migracoes/003_consumo.sql");
-        executar("db/migracoes/004_checkout.sql");
         return vazio;
     }
 

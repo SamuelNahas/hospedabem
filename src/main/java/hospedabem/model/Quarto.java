@@ -33,11 +33,6 @@ public class Quarto {
         situacao = SituacaoQuarto.OCUPADO;
     }
 
-    /** Liberação no check-out (UC12): o quarto volta a ficar disponível para novo check-in. */
-    public void liberar() {
-        situacao = SituacaoQuarto.DISPONIVEL;
-    }
-
     public void exigirSituacaoDeCadastro() {
         if (!situacao.definivelNoCadastro())
             throw new NegocioException("Situação " + situacao + " não pode ser definida pelo cadastro: ela resulta do "
