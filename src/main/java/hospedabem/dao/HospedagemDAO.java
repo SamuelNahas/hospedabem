@@ -99,4 +99,14 @@ public class HospedagemDAO {
                     quarto, l.conta());
         });
     }
+
+    /** Grava o encerramento da hospedagem e o fechamento da conta (UC12). */
+    public void encerrar(Hospedagem h) {
+        int hospedagens = jdbc.update("UPDATE hospedagem SET situacao = ?, data_hora_saida = ? WHERE id = ? AND situacao = 'ATIVA'",
+                h.getSituacao().name(), h.getDataHoraSaida(), h.getId());
+        int contas = jdbc.update("UPDATE conta_hospedagem SET situacao = ?, fechada_em = ? WHERE id = ? AND situacao = 'ABERTA'",
+                h.getConta().getSituacao().name(), h.getDataHoraSaida(), h.getConta().getId());
+        if (hospedagens != 1 || contas != 1)
+            throw new IllegalStateException("Hospedagem " + h.getCodigo() + " já estava encerrada.");
+    }
 }

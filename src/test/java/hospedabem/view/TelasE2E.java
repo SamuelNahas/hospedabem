@@ -278,9 +278,9 @@ class TelasE2E {
         assertEquals("1", consultar("SELECT COUNT(*) FROM reserva"));
     }
 
-    /** UC11 pela tela: localizar a hospedagem ativa e lançar um item do catálogo. */
+    /** UC11 e UC12 pelas telas: lançar consumo, conferir a conta, pagar e liberar o quarto. */
     @Test
-    void recepcionistaLancaConsumoPelaTela() {
+    void recepcionistaLancaConsumoEConcluiCheckOutPelasTelas() {
         jdbc.update("INSERT INTO item_consumo (codigo, descricao, categoria, preco) VALUES ('AGUA', 'Água', 'Frigobar', 5.50)");
         entrar("recep01", "Recep@123");
         robo.clicar("Check-in");
@@ -309,6 +309,20 @@ class TelasE2E {
         assertEquals("Lançado: 2 × Água = R$ 11,00.", robo.aviso());
         assertEquals("11.00", consultar("SELECT valor_total FROM consumo"));
         robo.capturar("consumo-lancado");
+
+        robo.clicar("Check-out");
+        robo.selecionarLinha(0);
+        robo.clicar("Conferir conta");
+        assertTrue(robo.exibeTexto("Total a pagar: R$ 191,00"));
+        assertEquals("OCUPADO", consultar("SELECT situacao FROM quarto WHERE numero = 101"));
+        robo.escolher("Forma", f -> f.toString().equals("Pix"));
+        robo.clicarEConfirmar("Confirmar pagamento e check-out", ButtonType.YES);
+        assertTrue(robo.aviso().startsWith("Check-out da hospedagem 5001 concluído"), robo.aviso());
+        assertEquals(0, robo.linhasDaTabela());
+        assertEquals("DISPONIVEL", consultar("SELECT situacao FROM quarto WHERE numero = 101"));
+        assertEquals("PIX", consultar("SELECT forma FROM pagamento"));
+        assertEquals("FECHADA", consultar("SELECT situacao FROM conta_hospedagem"));
+        robo.capturar("check-out-concluido");
     }
 
     @Test
