@@ -18,7 +18,7 @@ A iteração 1 implementou os seis casos de uso alocados na listagem de casos de
 | UC08 | Registrar Reserva | administrador, recepcionista | 1 |
 | UC10 | Realizar Check-in, com e sem reserva | administrador, recepcionista | 1 |
 
-Ficam para as próximas iterações: cadastro de hóspedes (UC06), alteração e cancelamento de reservas (UC09), consumos, check-out, pagamentos, comprovantes e relatórios, e a troca periódica de senha pelo próprio funcionário (RNF-8), que parte do UC02. O menu só mostra o que foi implementado.
+Na iteração 2 também foram entregues o lançamento de consumo (UC11) e o check-out com pagamento (UC12). Ficam para as próximas iterações: cadastro de hóspedes (UC06), alteração e cancelamento de reservas (UC09), comprovantes/extrato impresso (UC14), relatórios e a troca periódica de senha pelo próprio funcionário (RNF-8), que parte do UC02. O menu só mostra o que foi implementado.
 
 ## Iteração 2 — UC05: itens de consumo e serviços
 
@@ -31,6 +31,28 @@ Na inicialização, `db/migracoes/002_itens_consumo.sql` é aplicado tanto a ban
 A tabela `consumo` prepara a integração com o UC11: cada lançamento referencia uma conta e um item e preserva o preço unitário aplicado. Alterar o preço do catálogo não recalcula lançamentos antigos; excluir um item referenciado é recusado. **A tela e a operação de lançar consumo pertencem ao UC11 e ainda não estão implementadas.** Os testes criam lançamentos fictícios diretamente no PostgreSQL para verificar essa proteção.
 
 O UC05 segue as mesmas camadas dos demais cadastros: `ItemConsumo`, `ItemConsumoDAO`, `ServicoItemConsumo`, `ControladorItemConsumo` e `TelaItemConsumo`. Os testes focados podem ser executados com `mvn test -Dtest=ItemConsumoIT` e `mvn test -Dtest='TelasE2E#administradorGerenciaItensDeConsumoPelaTela'`; ambos usam exclusivamente `hospedabem_test`.
+
+## Iteração 2 — UC11: lançar consumo/serviço
+
+**Atendimento → Lançar consumo** (recepcionista e administrador). Selecione a hospedagem ativa, veja os lançamentos da conta, escolha o item do catálogo e a quantidade (1 a 999). Cada lançamento grava data/hora, código, descrição e preço unitário aplicados, e o banco calcula o total; alterar o catálogo depois não muda lançamentos antigos. Só são aceitos lançamentos em hospedagem ATIVA com conta ABERTA. Camadas: `Consumo` / `Hospedagem.lancarConsumo` → `ConsumoDAO` → `ServicoConsumo` → `ControladorConsumo` → `TelaConsumo`.
+
+A migração `db/migracoes/003_consumo.sql` (sem apagar dados) acrescenta a `consumo`: `valor_total` como coluna gerada pelo banco (`preco_unitario * quantidade`, `NUMERIC(13,2)`, que comporta o maior lançamento aceito), o limite de 999 na quantidade, `funcionario_id` e o código e a descrição do item cobrados, preenchidos para lançamentos antigos. Como `ALTER TABLE` trava a tabela inteira, o `InicializadorBanco` só executa o script enquanto `valor_total` ainda não é coluna gerada; reiniciar uma estação não bloqueia os lançamentos das outras. O lançamento trava só as linhas da hospedagem e da conta (`SELECT ... FOR UPDATE OF h, c`), a mesma trava usada pelo check-out (UC12), e não relê o quarto nem os lançamentos anteriores.
+
+Testes: `mvn test -Dtest='ConsumoIT,ConsumoDominioTest'` e `TelasE2E#recepcionistaLancaConsumoPelaTela`.
+
+## Iteração 2 — UC12: realizar check-out
+
+**Atendimento → Check-out**, em três passos numa tela (RNF-12): localizar a hospedagem, conferir diárias + consumos + total, escolher a forma (dinheiro, pix, cartão de crédito ou débito) e confirmar. Antes da confirmação nada é gravado. A confirmação, numa única transação, grava o pagamento e a data/hora de saída, fecha a conta, encerra a hospedagem e deixa o quarto DISPONIVEL. O total é recalculado na confirmação; se diferir do conferido (consumo lançado ou virada de dia), a operação é recusada.
+
+**Regra de diárias (decisão da equipe, `RegraDiarias`):** conta-se o número de noites — dias de calendário entre a data de entrada e a data da saída efetiva, sem considerar horário — com mínimo de uma diária. Saída no mesmo dia cobra 1; saída antecipada cobra só as noites usadas; atraso cobra as noites efetivas, sem multa nem acréscimo por horário. O valor da diária é o preservado na conta no check-in.
+
+**Concorrência:** lançamento e check-out travam as mesmas linhas (`hospedagem`, `conta_hospedagem` e, no check-out, `quarto`). Um consumo que chega durante o check-out espera e encontra a conta fechada; uma segunda confirmação encontra a hospedagem encerrada, e o `UNIQUE` de `pagamento` impede cobrança duplicada.
+
+**Relógio:** a data/hora de entrada, de saída e dos lançamentos vem do relógio da estação alinhado ao do banco (`App.relogio`, que mede a diferença na inicialização). Assim, uma estação com o relógio adiantado ou atrasado não produz saída "anterior à entrada" nem muda a contagem de diárias perto da meia-noite.
+
+A migração `db/migracoes/004_checkout.sql` acrescenta `conta_hospedagem.fechada_em` e a tabela `pagamento`, com valores em `NUMERIC(15,2)`; acima disso o extrato recusa com mensagem de negócio. Como a 003, ela só é executada enquanto falta.
+
+Testes: `mvn test -Dtest='CheckOutIT,CheckOutDominioTest'` e `TelasE2E#recepcionistaLancaConsumoEConcluiCheckOutPelasTelas`.
 
 ## Tecnologia e organização (MVC)
 

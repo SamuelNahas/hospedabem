@@ -278,6 +278,53 @@ class TelasE2E {
         assertEquals("1", consultar("SELECT COUNT(*) FROM reserva"));
     }
 
+    /** UC11 e UC12 pelas telas: lançar consumo, conferir a conta, pagar e liberar o quarto. */
+    @Test
+    void recepcionistaLancaConsumoEConcluiCheckOutPelasTelas() {
+        jdbc.update("INSERT INTO item_consumo (codigo, descricao, categoria, preco) VALUES ('AGUA', 'Água', 'Frigobar', 5.50)");
+        entrar("recep01", "Recep@123");
+        robo.clicar("Check-in");
+        robo.clicar("Sem reserva");
+        robo.escrever("CPF/passaporte do responsável", "XP1234567");
+        robo.escolher("Tipo de quarto", t -> t.toString().startsWith("STD"));
+        robo.escreverData("Saída prevista", HOJE.plusDays(2));
+        robo.clicar("Iniciar check-in");
+        robo.escreverNoCampoComDica("CPF ou passaporte do hóspede", "XP1234567");
+        robo.clicar("Adicionar hóspede");
+        robo.clicar("Consultar quartos disponíveis");
+        robo.selecionarLinha(0);
+        robo.clicar("Selecionar quarto");
+        robo.clicar("Confirmar check-in");
+
+        robo.clicar("Lançar consumo");
+        assertEquals(1, robo.linhasDaTabela());
+        robo.selecionarLinha(0);
+        robo.aguardar();
+        robo.escolher("Item", i -> i.toString().startsWith("AGUA"));
+        robo.escrever("Quantidade", "0");
+        robo.clicar("Lançar");
+        assertEquals("Quantidade deve ser maior que zero.", robo.aviso());
+        robo.escrever("Quantidade", "2");
+        robo.clicar("Lançar");
+        assertEquals("Lançado: 2 × Água = R$ 11,00.", robo.aviso());
+        assertEquals("11.00", consultar("SELECT valor_total FROM consumo"));
+        robo.capturar("consumo-lancado");
+
+        robo.clicar("Check-out");
+        robo.selecionarLinha(0);
+        robo.clicar("Conferir conta");
+        assertTrue(robo.exibeTexto("Total a pagar: R$ 191,00"));
+        assertEquals("OCUPADO", consultar("SELECT situacao FROM quarto WHERE numero = 101"));
+        robo.escolher("Forma", f -> f.toString().equals("Pix"));
+        robo.clicarEConfirmar("Confirmar pagamento e check-out", ButtonType.YES);
+        assertTrue(robo.aviso().startsWith("Check-out da hospedagem 5001 concluído"), robo.aviso());
+        assertEquals(0, robo.linhasDaTabela());
+        assertEquals("DISPONIVEL", consultar("SELECT situacao FROM quarto WHERE numero = 101"));
+        assertEquals("PIX", consultar("SELECT forma FROM pagamento"));
+        assertEquals("FECHADA", consultar("SELECT situacao FROM conta_hospedagem"));
+        robo.capturar("check-out-concluido");
+    }
+
     @Test
     void erroNaEtapaDoQuartoFicaVisivelMesmoComAPaginaRolada() {
         entrar("recep01", "Recep@123");
