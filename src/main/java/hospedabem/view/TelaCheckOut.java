@@ -10,6 +10,8 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableView;
 
+import java.math.BigDecimal;
+
 /**
  * UC12 em três passos na mesma página (RNF-12: até cinco telas): 1) localizar a hospedagem,
  * 2) conferir diárias, consumos e total, 3) escolher a forma e confirmar o pagamento. Até a
@@ -17,16 +19,19 @@ import javafx.scene.control.TableView;
  */
 public class TelaCheckOut extends Pagina {
     private final ControladorCheckOut controlador;
-    private final TableView<ResumoHospedagem> hospedagens = Campos.tabelaDeHospedagens();
-    private final TableView<Consumo> consumos = Campos.tabelaDeConsumos();
+    private final TableView<ResumoHospedagem> hospedagens = Tabelas.hospedagensAtivas();
+    private final TableView<Consumo> consumos = Tabelas.consumos();
     private final Label diarias = new Label("Selecione uma hospedagem e clique em Conferir conta.");
     private final Label subtotalConsumos = new Label();
     private final Label total = new Label();
     private final ComboBox<FormaPagamento> forma = new ComboBox<>();
     private final Button conferir = Campos.botao("Conferir conta", "botao-secundario");
     private final Button confirmar = Campos.botao("Confirmar pagamento e check-out", "botao-primario");
-    private Integer codigo;
-    private Extrato extrato;
+    /** O que foi conferido e pode ser confirmado; {@code null} até a conferência da linha selecionada. */
+    private Conferencia conferida;
+
+    private record Conferencia(int codigoHospedagem, Extrato extrato) {
+    }
 
     public TelaCheckOut(ControladorCheckOut controlador) {
         super("Check-out", "Confira diárias e consumos, registre o pagamento e libere o quarto.");
@@ -51,8 +56,7 @@ public class TelaCheckOut extends Pagina {
     }
 
     private void limparExtrato() {
-        codigo = null;
-        extrato = null;
+        conferida = null;
         consumos.getItems().clear();
         diarias.setText("Clique em Conferir conta.");
         subtotalConsumos.setText("");
@@ -70,8 +74,7 @@ public class TelaCheckOut extends Pagina {
         // seleção é descartado, para não confirmar a hospedagem errada.
         Tarefa.executar(conferir, aviso, () -> controlador.conferir(r.codigo()), e -> {
             if (hospedagens.getSelectionModel().getSelectedItem() != r) return;
-            codigo = r.codigo();
-            extrato = e;
+            conferida = new Conferencia(r.codigo(), e);
             diarias.setText("Diárias: " + e.quantidadeDiarias() + " × " + Campos.moeda(e.valorDiaria()) + " = "
                     + Campos.moeda(e.valorDiarias()));
             consumos.getItems().setAll(e.consumos());
@@ -82,7 +85,7 @@ public class TelaCheckOut extends Pagina {
     }
 
     private void confirmar() {
-        if (codigo == null || extrato == null) {
+        if (conferida == null) {
             aviso.erro("Confira a conta antes de confirmar.");
             return;
         }
@@ -91,11 +94,11 @@ public class TelaCheckOut extends Pagina {
             aviso.erro("Selecione a forma de pagamento.");
             return;
         }
-        int cod = codigo;
-        Extrato conferido = extrato;
-        if (!Campos.confirmar("Confirmar o recebimento de " + Campos.moeda(conferido.total()) + " em "
+        int cod = conferida.codigoHospedagem();
+        BigDecimal total = conferida.extrato().total();
+        if (!Campos.confirmar("Confirmar o recebimento de " + Campos.moeda(total) + " em "
                 + f.descricao() + " e concluir o check-out da hospedagem " + cod + "?")) return;
-        Tarefa.executar(confirmar, aviso, () -> controlador.confirmarPagamento(cod, f, conferido.total()), p -> {
+        Tarefa.executar(confirmar, aviso, () -> controlador.confirmarPagamento(cod, f, total), p -> {
             limparExtrato();
             forma.setValue(null);
             recarregar();

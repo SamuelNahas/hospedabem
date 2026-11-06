@@ -3,7 +3,6 @@ package hospedabem.controller;
 import hospedabem.model.Extrato;
 import hospedabem.model.FormaPagamento;
 import hospedabem.model.Pagamento;
-import hospedabem.model.Perfil;
 import hospedabem.model.ResumoHospedagem;
 import hospedabem.service.ServicoCheckOut;
 import org.springframework.stereotype.Component;
@@ -23,18 +22,17 @@ public class ControladorCheckOut {
     }
 
     public List<ResumoHospedagem> listarHospedagensAtivas() {
-        sessao.exigir(Perfil.RECEPCIONISTA, Perfil.ADMINISTRADOR);
+        sessao.exigirQualquerPerfil();
         return servico.listarHospedagensAtivas();
     }
 
     public Extrato conferir(int codigoHospedagem) {
-        sessao.exigir(Perfil.RECEPCIONISTA, Perfil.ADMINISTRADOR);
+        sessao.exigirQualquerPerfil();
         return servico.conferir(codigoHospedagem);
     }
 
-    /** Confirma o pagamento do total conferido e conclui o check-out. */
     public Pagamento confirmarPagamento(int codigoHospedagem, FormaPagamento forma, BigDecimal totalConferido) {
-        int funcionario = sessao.exigir(Perfil.RECEPCIONISTA, Perfil.ADMINISTRADOR).id();
+        int funcionario = sessao.exigirQualquerPerfil().id();
         return servico.confirmar(codigoHospedagem, forma, totalConferido, funcionario);
     }
 }

@@ -41,13 +41,11 @@ public class ServicoConsumo {
         return itemDAO.listar();
     }
 
-    /** Localiza a hospedagem e sua conta com os lançamentos já persistidos. */
     @Transactional(readOnly = true)
     public Hospedagem localizar(int codigoHospedagem) {
         Hospedagem h = hospedagemDAO.buscarPorCodigo(codigoHospedagem)
                 .orElseThrow(() -> Hospedagem.naoLocalizada(codigoHospedagem));
-        h.exigirAtiva();
-        h.getConta().exigirAberta();
+        h.exigirContaAberta();
         return h;
     }
 
