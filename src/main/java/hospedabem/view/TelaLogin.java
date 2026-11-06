@@ -26,19 +26,8 @@ public class TelaLogin extends StackPane {
             String m = matricula.getText();
             char[] s = senha.getText().toCharArray();
             senha.clear();
-            Tarefa.executar(entrar, aviso, () -> controlador.autenticar(m, s), funcionario -> {
-                if (!controlador.senhaVencida()) {
-                    getScene().setRoot(new TelaPrincipal(contexto, funcionario));
-                    return;
-                }
-                // RNF-8: com a senha vencida, só a troca é liberada antes do menu.
-                var cena = getScene();
-                TelaTrocaSenha troca = new TelaTrocaSenha(controlador, true,
-                        () -> cena.setRoot(new TelaPrincipal(contexto, funcionario)));
-                VBox raiz = new VBox(troca.getAviso(), troca);
-                raiz.getStyleClass().add("conteudo");
-                getScene().setRoot(raiz);
-            });
+            Tarefa.executar(entrar, aviso, () -> controlador.autenticar(m, s),
+                    funcionario -> getScene().setRoot(new TelaPrincipal(contexto, funcionario)));
         });
 
         Label marca = new Label("HospedaBem");
