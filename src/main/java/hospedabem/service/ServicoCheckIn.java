@@ -106,7 +106,7 @@ public class ServicoCheckIn {
 
     private Hospede buscarHospede(String documento, String motivo) {
         return hospedeDAO.buscarPorDocumento(documento).orElseThrow(() -> new NegocioException(motivo + ": " + documento
-                + ". O cadastro de hóspedes (UC06) será entregue na iteração 2; regularize o cadastro e reinicie o check-in."));
+                + ". Regularize o cadastro em \"Hóspedes\" (UC06) e reinicie o check-in."));
     }
 
     private LocalDate hoje() {

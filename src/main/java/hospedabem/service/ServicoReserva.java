@@ -36,8 +36,8 @@ public class ServicoReserva {
     @Transactional(readOnly = true)
     public Hospede buscarResponsavel(String cpfOuPassaporte) {
         return hospedeDAO.buscarPorDocumento(cpfOuPassaporte).orElseThrow(() -> new NegocioException(
-                "Hóspede não cadastrado: " + cpfOuPassaporte + ". O cadastro de hóspedes (UC06) será entregue na "
-                        + "iteração 2; nesta versão use os hóspedes da carga inicial."));
+                "Hóspede não cadastrado: " + cpfOuPassaporte + ". Cadastre-o em \"Hóspedes\" (UC06) e registre a "
+                        + "reserva em seguida."));
     }
 
     @Transactional
