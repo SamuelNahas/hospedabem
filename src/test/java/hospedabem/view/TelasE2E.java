@@ -434,4 +434,62 @@ class TelasE2E {
         assertEquals(3, robo.linhasDaTabela());
         robo.capturar("funcionario-recem-criado-autenticado");
     }
+
+    /**
+     * UC06 pela tela: a recepção inclui um hóspede, a identificação duplicada é recusada, o hóspede
+     * novo serve ao check-in sem depender da carga inicial e depois não pode mais ser excluído.
+     */
+    @Test
+    void cadastroDeHospedePelaTelaPermiteUsarOHospedeNovoNoCheckInEProtegeOHistorico() {
+        entrar("recep01", "Recep@123");
+        robo.clicar("Hóspedes");
+        assertEquals(5, robo.linhasDaTabela());
+
+        preencherHospede("529.982.247-25", "Marta Teste Nova");
+        robo.clicar("Salvar");
+        assertTrue(robo.aviso().startsWith("Hóspede Marta Teste Nova (52998224725) gravado."), robo.aviso());
+        robo.capturar("hospede-incluido");
+        assertEquals("52998224725", consultar("SELECT cpf_ou_passaporte FROM hospede WHERE nome = ?",
+                "Marta Teste Nova"));
+
+        preencherHospede("52998224725", "Marta Clone");
+        robo.clicar("Salvar");
+        assertTrue(robo.aviso().startsWith("Já existe hóspede com a identificação 52998224725."), robo.aviso());
+        assertEquals("1", consultar("SELECT COUNT(*) FROM hospede WHERE cpf_ou_passaporte = '52998224725'"));
+
+        // Busca pelo documento com pontuação encontra a linha gravada sem pontuação.
+        robo.escreverNoCampoComDica("CPF, passaporte ou nome", "529.982.247-25");
+        robo.clicar("Buscar hóspede");
+        assertEquals(1, robo.linhasDaTabela());
+
+        robo.clicar("Check-in");
+        robo.clicar("Sem reserva");
+        robo.escrever("CPF/passaporte do responsável", "52998224725");
+        robo.escolher("Tipo de quarto", t -> t.toString().contains("STD"));
+        robo.clicar("Iniciar check-in");
+        robo.escreverNoCampoComDica("CPF ou passaporte do hóspede", "52998224725");
+        robo.clicar("Adicionar hóspede");
+        robo.clicar("Consultar quartos disponíveis");
+        robo.selecionarLinha(0);
+        robo.clicar("Selecionar quarto");
+        robo.clicar("Confirmar check-in");
+        assertTrue(robo.aviso().startsWith("Check-in realizado com sucesso."), robo.aviso());
+
+        robo.clicar("Hóspedes");
+        robo.escreverNoCampoComDica("CPF, passaporte ou nome", "Marta Teste Nova");
+        robo.clicar("Buscar hóspede");
+        robo.selecionarLinha(0);
+        robo.clicarEConfirmar("Excluir", ButtonType.YES);
+        assertTrue(robo.aviso().contains("não pode ser excluído"), robo.aviso());
+        robo.capturar("hospede-com-hospedagem-nao-excluido");
+        assertEquals("1", consultar("SELECT COUNT(*) FROM hospede WHERE cpf_ou_passaporte = '52998224725'"));
+    }
+
+    /** Preenche o formulário do hóspede com os campos obrigatórios do UC06. */
+    private void preencherHospede(String documento, String nome) {
+        robo.escrever("CPF/Passaporte", documento);
+        robo.escrever("Nome", nome);
+        robo.escreverData("Data de nascimento", LocalDate.of(1990, 5, 20));
+        robo.escrever("Telefone", "(67) 90000-0009");
+    }
 }
