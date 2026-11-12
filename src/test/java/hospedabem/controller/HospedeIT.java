@@ -6,11 +6,17 @@ import hospedabem.model.Reserva;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -48,7 +54,7 @@ class HospedeIT extends IntegracaoBase {
         assertEquals(List.of(incluido), hospedes.procurar(CPF_NOVO));
         assertEquals(List.of(incluido), hospedes.procurar("marta teste"));
 
-        hospedes.alterar(Hospede.informado(incluido.id(), PASSAPORTE, "Marta Teste Alterada", NASCIMENTO,
+        hospedes.alterar(incluido, Hospede.informado(incluido.id(), PASSAPORTE, "Marta Teste Alterada", NASCIMENTO,
                 null, "Dourados", "MS", "(67) 90000-0010", null));
         assertTrue(hospedes.buscar(CPF_NOVO).isEmpty());
         Hospede alterada = hospedes.buscar(PASSAPORTE).orElseThrow();
@@ -79,7 +85,7 @@ class HospedeIT extends IntegracaoBase {
         assertEquals(PASSAPORTE, estrangeiro.cpfOuPassaporte());
 
         int quantidade = hospedes.listar().size();
-        for (String invalido : new String[]{null, "", "529.982.247-26", "1234567890", "AB#9876543"}) {
+        for (String invalido : new String[]{null, "", "529.982.247-26", "1234", "AB#9876543"}) {
             assertThrows(NegocioException.class, () -> hospedes.incluir(minimo(invalido, "Marta Inválida")));
         }
         assertEquals(quantidade, hospedes.listar().size());
@@ -93,7 +99,7 @@ class HospedeIT extends IntegracaoBase {
         assertThrows(NegocioException.class, () -> hospedes.incluir(minimo("529.982.247-25", "Marta Clone")));
         // Também contra a carga inicial, que grava o documento sem pontuação.
         assertThrows(NegocioException.class, () -> hospedes.incluir(minimo(CARLOS, "Carlos Clone")));
-        assertThrows(NegocioException.class, () -> hospedes.alterar(Hospede.informado(joao.id(), CPF_NOVO,
+        assertThrows(NegocioException.class, () -> hospedes.alterar(joao, Hospede.informado(joao.id(), CPF_NOVO,
                 "João Clone", NASCIMENTO, null, null, null, "(67) 90000-0009", null)));
 
         assertEquals(marta, hospedes.buscar(CPF_NOVO).orElseThrow());
@@ -105,7 +111,7 @@ class HospedeIT extends IntegracaoBase {
         Hospede inexistente = Hospede.informado(99999, CPF_NOVO, "Marta Fantasma", NASCIMENTO, null, null, null,
                 "(67) 90000-0009", null);
         assertTrue(hospedes.buscar(CPF_NOVO).isEmpty());
-        assertThrows(NegocioException.class, () -> hospedes.alterar(inexistente));
+        assertThrows(NegocioException.class, () -> hospedes.alterar(inexistente, inexistente));
         assertThrows(NegocioException.class, () -> hospedes.excluir(inexistente));
     }
 
@@ -118,7 +124,7 @@ class HospedeIT extends IntegracaoBase {
         assertThrows(AcessoNegadoException.class, () -> hospedes.procurar("marta"));
         assertThrows(AcessoNegadoException.class, () -> hospedes.buscar(CPF_NOVO));
         assertThrows(AcessoNegadoException.class, () -> hospedes.incluir(minimo(CPF_OUTRO, "João Teste")));
-        assertThrows(AcessoNegadoException.class, () -> hospedes.alterar(marta));
+        assertThrows(AcessoNegadoException.class, () -> hospedes.alterar(marta, marta));
         assertThrows(AcessoNegadoException.class, () -> hospedes.excluir(marta));
 
         logarComo("recep01");
@@ -201,7 +207,7 @@ class HospedeIT extends IntegracaoBase {
         assertTrue(hospedes.buscar(CPF_NOVO).isEmpty());
 
         Hospede gravada = hospedes.incluir(minimo(CPF_NOVO, "Marta Teste"));
-        assertThrows(NegocioException.class, () -> hospedes.alterar(Hospede.informado(gravada.id(), CPF_NOVO,
+        assertThrows(NegocioException.class, () -> hospedes.alterar(gravada, Hospede.informado(gravada.id(), CPF_NOVO,
                 "Marta Teste", HOJE.plusDays(1), null, null, null, "(67) 90000-0009", null)));
         assertEquals(NASCIMENTO, hospedes.buscar(CPF_NOVO).orElseThrow().dataNascimento());
     }
@@ -211,10 +217,88 @@ class HospedeIT extends IntegracaoBase {
     void migracaoCriaOsIndicesDoCadastroSemPerderDados() {
         int reserva = reservas.registrar(DIEGO, "SUI", HOJE.plusDays(3), HOJE.plusDays(5), 1).getCodigo();
         int antes = hospedes.listar().size();
-        jdbc.execute("DROP INDEX hospede_nome");
+        jdbc.execute("DROP INDEX hospedagem_hospede_hospede");
         assertFalse(inicializador.inicializarSeVazio());
-        assertEquals(1, contar("SELECT COUNT(*) FROM pg_indexes WHERE indexname = 'hospede_nome'"));
+        assertEquals(1, contar("SELECT COUNT(*) FROM pg_indexes WHERE indexname = 'hospedagem_hospede_hospede'"));
         assertEquals(antes, hospedes.listar().size());
         assertEquals(1, contar("SELECT COUNT(*) FROM reserva WHERE codigo = ?", reserva));
+    }
+
+    /**
+     * Outra estação registra reserva para o hóspede e só confirma depois que a exclusão começou: a
+     * exclusão espera a trava e responde que há vínculo, sem erro genérico de banco.
+     */
+    @Test
+    void exclusaoConcorrenteComReservaEmAndamentoExplicaOVinculo() throws Exception {
+        Hospede marta = hospedes.incluir(minimo(CPF_NOVO, "Marta Responsável"));
+        try (Connection outraEstacao = jdbc.getDataSource().getConnection()) {
+            outraEstacao.setAutoCommit(false);
+            try (PreparedStatement insert = outraEstacao.prepareStatement("INSERT INTO reserva "
+                    + "(hospede_responsavel_id, tipo_quarto_id, data_entrada_prevista, data_saida_prevista, "
+                    + "quantidade_hospedes, situacao, funcionario_id) SELECT ?, MIN(t.id), CURRENT_DATE + 3, "
+                    + "CURRENT_DATE + 5, 1, 'CONFIRMADA', (SELECT MIN(id) FROM funcionario) FROM tipo_quarto t")) {
+                insert.setInt(1, marta.id());
+                insert.executeUpdate();
+            }
+            CompletableFuture<Void> exclusao = CompletableFuture.runAsync(() -> hospedes.excluir(marta));
+            Thread.sleep(500);
+            assertFalse(exclusao.isDone());
+            outraEstacao.commit();
+            ExecutionException erro = assertThrows(ExecutionException.class,
+                    () -> exclusao.get(10, TimeUnit.SECONDS));
+            NegocioException negocio = assertInstanceOf(NegocioException.class, erro.getCause());
+            assertTrue(negocio.getMessage().contains("não pode ser excluído"), negocio.getMessage());
+        }
+        assertTrue(hospedes.buscar(CPF_NOVO).isPresent());
+    }
+
+    /** Acompanhante excluído por outra estação entre a inclusão no check-in e a confirmação. */
+    @Test
+    void checkInComHospedeExcluidoNoMeioPedeParaReiniciar() {
+        hospedes.incluir(minimo(CPF_NOVO, "Marta Responsável"));
+        Hospede acompanhante = hospedes.incluir(minimo(CPF_OUTRO, "João Acompanhante"));
+        ControladorCheckIn c = checkIns.getObject();
+        c.iniciarCheckInSemReserva(CPF_NOVO, "STD", HOJE, HOJE.plusDays(1));
+        c.adicionarHospede(CPF_NOVO);
+        c.adicionarHospede(CPF_OUTRO);
+        c.selecionarQuarto(c.consultarQuartosDisponiveis().get(0).getNumero());
+        hospedes.excluir(acompanhante);
+
+        NegocioException erro = assertThrows(NegocioException.class, c::confirmarCheckIn);
+        assertTrue(erro.getMessage().contains("Reinicie o check-in"), erro.getMessage());
+        assertEquals(0, contar("SELECT COUNT(*) FROM hospedagem"
+                + " WHERE id IN (SELECT hospedagem_id FROM hospedagem_hospede WHERE hospede_id IN "
+                + "(SELECT id FROM hospede WHERE cpf_ou_passaporte = ?))", CPF_NOVO));
+    }
+
+    /** O formulário aberto antes da alteração de outra estação não a sobrescreve. */
+    @Test
+    void alteracaoSobreCadastroDesatualizadoEhRecusada() {
+        Hospede aberto = hospedes.incluir(minimo(CPF_NOVO, "Marta Teste"));
+        hospedes.alterar(aberto, Hospede.informado(aberto.id(), CPF_NOVO, "Marta Teste", NASCIMENTO, null, null,
+                null, "(67) 90000-0077", null));
+        NegocioException erro = assertThrows(NegocioException.class, () -> hospedes.alterar(aberto,
+                Hospede.informado(aberto.id(), CPF_NOVO, "Marta Teste", NASCIMENTO, "Rua Nova, 2", null, null,
+                        "(67) 90000-0009", null)));
+        assertTrue(erro.getMessage().contains("alterado por outra estação"), erro.getMessage());
+        assertEquals("(67) 90000-0077", hospedes.buscar(CPF_NOVO).orElseThrow().telefone());
+    }
+
+    @Test
+    void buscaTrataPontuacaoECuringaComoTextoEIgnoraEspacosRepetidos() {
+        for (String termo : new String[]{".", "-", "/", "_", "%"}) {
+            assertEquals(List.of(), hospedes.procurar(termo), "termo " + termo);
+        }
+        assertEquals(hospedes.procurar("Carlos Teste"), hospedes.procurar("  Carlos   Teste "));
+        assertEquals(1, hospedes.procurar("Carlos Teste").size());
+    }
+
+    /** O estrangeiro da carga inicial tem telefone internacional e pode ter o cadastro alterado. */
+    @Test
+    void estrangeiroComTelefoneInternacionalPodeSerAlterado() {
+        Hospede john = hospedes.buscar("XP1234567").orElseThrow();
+        hospedes.alterar(john, Hospede.informado(john.id(), john.cpfOuPassaporte(), john.nome(),
+                john.dataNascimento(), john.endereco(), "Londres", null, john.telefone(), john.email()));
+        assertEquals("Londres", hospedes.buscar("XP1234567").orElseThrow().cidade());
     }
 }

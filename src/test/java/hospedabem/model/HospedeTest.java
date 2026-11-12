@@ -35,10 +35,30 @@ class HospedeTest {
 
     @Test
     void identificacaoInvalidaOuAusenteEhRecusada() {
-        // Só dígitos é tratado como CPF, então um número fora dos dígitos verificadores não passa.
-        for (String invalido : new String[]{null, "", "   ", "529.982.247-26", "11111111111", "12345678",
-                "123456789012", "XP12", "XP#1234567", "A".repeat(21)}) {
+        // Onze dígitos é tratado como CPF, então um número fora dos dígitos verificadores não passa.
+        // Letras de outros alfabetos (Х e Р cirílicos) e acentos driblariam a restrição UNIQUE.
+        for (String invalido : new String[]{null, "", "   ", "529.982.247-26", "11111111111", "1234",
+                "XP12", "XP#1234567", "A".repeat(21), "1".repeat(21), "ХР1234567", "ÉÇÃÕ1"}) {
             assertThrows(NegocioException.class, () -> informado(invalido), "aceitou " + invalido);
+        }
+    }
+
+    @Test
+    void passaporteSoNumericoEhAceito() {
+        Hospede britanico = informado("925665416");
+        assertEquals("925665416", britanico.cpfOuPassaporte());
+        assertFalse(britanico.ehCpf());
+    }
+
+    @Test
+    void telefoneInternacionalEhAceitoComMais() {
+        assertEquals("+1 555 0100", Hospede.informado(0, "XP1234567", "John Test", NASCIMENTO, null, null, null,
+                "+1 555 0100", null).telefone());
+        assertEquals("+123456789012345", Hospede.informado(0, "XP1234567", "John Test", NASCIMENTO, null, null,
+                null, "+123456789012345", null).telefone());
+        for (String telefone : new String[]{"+1 555 010", "+1234567890123456", "555 0100"}) {
+            assertThrows(NegocioException.class, () -> Hospede.informado(0, "XP1234567", "John Test", NASCIMENTO,
+                    null, null, null, telefone, null), "aceitou " + telefone);
         }
     }
 
@@ -104,6 +124,9 @@ class HospedeTest {
                 "(67) 91111-1111", null));
         assertThrows(NegocioException.class, () -> new Hospede(1, "11111111111", "Carlos", NASCIMENTO, null, null,
                 null, null, null));
+        // Em branco é aceito pelo esquema; a linha é lida e só a regravação exige corrigir.
+        Hospede emBranco = new Hospede(1, "11111111111", " ", NASCIMENTO, null, null, null, "", null);
+        assertEquals("", emBranco.telefone());
     }
 
     /**

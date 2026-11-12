@@ -90,7 +90,7 @@ public class TelaHospede extends Pagina {
     }
 
     private void salvar() {
-        boolean inclusao = selecionado == null;
+        Hospede original = selecionado;
         Hospede h;
         try {
             h = doFormulario();
@@ -99,8 +99,8 @@ public class TelaHospede extends Pagina {
             return;
         }
         Tarefa.executar(salvar, aviso, () -> {
-            if (inclusao) controlador.incluir(h);
-            else controlador.alterar(h);
+            if (original == null) controlador.incluir(h);
+            else controlador.alterar(original, h);
             return h;
         }, ok -> {
             selecionar(null);

@@ -45,9 +45,9 @@ public class ControladorHospede {
         return servico.incluir(h);
     }
 
-    public void alterar(Hospede h) {
+    public void alterar(Hospede original, Hospede h) {
         sessao.exigir(PERMITIDOS);
-        servico.alterar(h);
+        servico.alterar(original, h);
     }
 
     public void excluir(Hospede h) {
