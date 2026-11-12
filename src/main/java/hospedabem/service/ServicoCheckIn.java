@@ -90,6 +90,9 @@ public class ServicoCheckIn {
                 : reservaDAO.buscarPorCodigoParaAtualizar(a.getReserva().getCodigo())
                 .orElseThrow(() -> new NegocioException("A reserva foi removida por outra operação."));
         a.exigirReservaInalterada(reservaAtual);
+        List<Integer> hospedes = a.getHospedes().stream().map(Hospede::id).toList();
+        if (hospedeDAO.bloquear(hospedes) < hospedes.stream().distinct().count())
+            throw new NegocioException("Um dos hóspedes foi excluído por outra estação. Reinicie o check-in.");
         int numero = a.getQuarto().getNumero();
         Quarto quartoAtual = quartoDAO.buscarPorNumeroParaAtualizar(numero).orElseThrow(() -> Quarto.indisponivel(numero));
         Hospedagem h = a.criarHospedagem(quartoAtual, reservaAtual, agora());

@@ -3,7 +3,6 @@ package hospedabem.service;
 import hospedabem.dao.HospedeDAO;
 import hospedabem.model.Hospede;
 import hospedabem.model.NegocioException;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,27 +50,31 @@ public class ServicoHospede {
         return traduzindoDuplicidade(h, () -> h.comId(dao.inserir(h)));
     }
 
+    /**
+     * Grava {@code informado} sobre {@code original}, o cadastro como estava quando o formulário foi
+     * aberto. Se outra estação alterou o hóspede nesse meio-tempo, recusa em vez de sobrescrever.
+     */
     @Transactional
-    public void alterar(Hospede informado) {
+    public void alterar(Hospede original, Hospede informado) {
         Hospede h = validar(informado);
-        if (traduzindoDuplicidade(h, () -> dao.atualizar(h)) == 0) throw inexistente();
+        Hospede gravado = dao.buscarPorIdParaAtualizar(original.id()).orElseThrow(ServicoHospede::inexistente);
+        if (!gravado.equals(original))
+            throw new NegocioException("O hóspede " + gravado.nome() + " foi alterado por outra estação. "
+                    + "Selecione-o de novo na lista e refaça a alteração.");
+        traduzindoDuplicidade(h, () -> dao.atualizar(h));
     }
 
     /**
-     * Exclui o hóspede se existir e não houver reserva ou hospedagem ligada a ele. O impedimento é
-     * conferido na mesma transação e, ainda assim, a violação de chave estrangeira é traduzida: a
-     * reserva pode ser registrada por outra estação entre a contagem e o {@code DELETE}.
+     * Exclui o hóspede se existir e não houver reserva ou hospedagem ligada a ele. A linha fica
+     * travada antes da contagem, então nenhuma estação cria vínculo entre a contagem e o
+     * {@code DELETE}.
      */
     @Transactional
     public void excluir(Hospede h) {
-        Hospede gravado = dao.buscarPorId(h.id()).orElseThrow(ServicoHospede::inexistente);
+        Hospede gravado = dao.buscarPorIdParaAtualizar(h.id()).orElseThrow(ServicoHospede::inexistente);
         int vinculos = dao.contarVinculos(gravado.id());
         if (vinculos > 0) throw comVinculos(gravado, vinculos);
-        try {
-            if (dao.excluir(gravado.id()) == 0) throw inexistente();
-        } catch (DataIntegrityViolationException e) {
-            throw comVinculos(gravado, dao.contarVinculos(gravado.id()));
-        }
+        dao.excluir(gravado.id());
     }
 
     private Hospede validar(Hospede informado) {

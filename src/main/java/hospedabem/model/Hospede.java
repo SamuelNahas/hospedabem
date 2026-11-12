@@ -2,7 +2,9 @@ package hospedabem.model;
 
 import java.time.LocalDate;
 import java.util.Locale;
-import java.util.Set;
+
+import static hospedabem.model.Validacao.limitar;
+import static hospedabem.model.Validacao.opcional;
 
 /**
  * Hóspede do hotel (UC06). As regras de formato e de obrigatoriedade dos campos ficam aqui, pelo
@@ -22,19 +24,14 @@ import java.util.Set;
 public record Hospede(int id, String cpfOuPassaporte, String nome, LocalDate dataNascimento, String endereco,
                       String cidade, String estado, String telefone, String email) {
 
-    private static final Set<String> UNIDADES_FEDERATIVAS = Set.of("AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES",
-            "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP",
-            "SE", "TO");
-
     /** Idade máxima aceita; evita que um ano digitado errado passe como data de nascimento. */
     private static final int IDADE_MAXIMA = 130;
 
     public Hospede {
-        if (cpfOuPassaporte == null || cpfOuPassaporte.isBlank())
-            throw new NegocioException("CPF ou passaporte é obrigatório.");
-        if (nome == null || nome.isBlank()) throw new NegocioException("Nome é obrigatório.");
+        if (cpfOuPassaporte == null) throw new NegocioException("CPF ou passaporte é obrigatório.");
+        if (nome == null) throw new NegocioException("Nome é obrigatório.");
         if (dataNascimento == null) throw new NegocioException("Data de nascimento é obrigatória.");
-        if (telefone == null || telefone.isBlank()) throw new NegocioException("Telefone é obrigatório.");
+        if (telefone == null) throw new NegocioException("Telefone é obrigatório.");
     }
 
     /**
@@ -45,9 +42,10 @@ public record Hospede(int id, String cpfOuPassaporte, String nome, LocalDate dat
      */
     public static Hospede informado(int id, String cpfOuPassaporte, String nome, LocalDate dataNascimento,
                                     String endereco, String cidade, String estado, String telefone, String email) {
-        return new Hospede(id, exigirDocumento(cpfOuPassaporte), exigirNome(nome), dataNascimento,
+        return new Hospede(id, exigirDocumento(cpfOuPassaporte), Validacao.nome(nome), dataNascimento,
                 limitar(opcional(endereco), 200, "Endereço"), limitar(opcional(cidade), 80, "Cidade"),
-                exigirEstado(opcional(estado)), exigirTelefone(opcional(telefone)), exigirEmail(opcional(email)));
+                Validacao.estado(opcional(estado)), exigirTelefone(opcional(telefone)),
+                Validacao.email(opcional(email)));
     }
 
     /** Os mesmos dados deste hóspede, normalizados e validados como se tivessem sido digitados. */
@@ -71,7 +69,7 @@ public record Hospede(int id, String cpfOuPassaporte, String nome, LocalDate dat
             throw new NegocioException("Data de nascimento inválida: confira o ano.");
     }
 
-    /** Identificação nacional (CPF) quando só tem dígitos; caso contrário é passaporte. */
+    /** Identificação nacional (CPF) quando tem exatamente 11 dígitos; caso contrário é passaporte. */
     public boolean ehCpf() {
         return ehCpf(cpfOuPassaporte);
     }
@@ -82,7 +80,7 @@ public record Hospede(int id, String cpfOuPassaporte, String nome, LocalDate dat
     }
 
     private static boolean ehCpf(String normalizado) {
-        return !normalizado.isEmpty() && normalizado.chars().allMatch(Character::isDigit);
+        return normalizado.matches("[0-9]{11}");
     }
 
     /** Aceita CPF do brasileiro ou passaporte do estrangeiro e devolve a grafia normalizada. */
@@ -94,70 +92,26 @@ public record Hospede(int id, String cpfOuPassaporte, String nome, LocalDate dat
 
     /** Valida os dígitos verificadores; o CPF é guardado só com dígitos, como a coluna já tem. */
     private static String exigirCpf(String digitos) {
-        if (digitos.length() != 11)
-            throw new NegocioException("CPF deve ter 11 dígitos; para estrangeiro informe o passaporte.");
-        if (digitos.chars().distinct().count() == 1) throw new NegocioException("CPF inválido.");
-        for (int posicao = 9; posicao <= 10; posicao++) {
-            int soma = 0;
-            for (int i = 0; i < posicao; i++) soma += (digitos.charAt(i) - '0') * (posicao + 1 - i);
-            int resto = soma % 11;
-            int esperado = resto < 2 ? 0 : 11 - resto;
-            if (digitos.charAt(posicao) - '0' != esperado) throw new NegocioException("CPF inválido.");
-        }
+        Validacao.exigirDigitosDoCpf(digitos);
         return digitos;
     }
 
-    /** Passaporte: letras e números, com ao menos uma letra para não se confundir com CPF. */
+    /**
+     * Passaporte: só letras latinas sem acento e algarismos (há passaportes só numéricos, como os
+     * britânicos), para que letras parecidas de outros alfabetos não driblem a restrição UNIQUE.
+     */
     private static String exigirPassaporte(String passaporte) {
-        if (!passaporte.chars().allMatch(Character::isLetterOrDigit))
-            throw new NegocioException("Passaporte só aceita letras e números.");
+        if (!passaporte.matches("[A-Z0-9]*"))
+            throw new NegocioException("Passaporte só aceita letras de A a Z e números.");
         if (passaporte.length() < 5 || passaporte.length() > 20)
             throw new NegocioException("Passaporte deve ter de 5 a 20 letras e números, como XP1234567.");
         return passaporte;
     }
 
-    private static String exigirNome(String nome) {
-        String n = nome == null ? "" : nome.trim().replaceAll("\\s+", " ");
-        if (n.isEmpty()) throw new NegocioException("Nome é obrigatório.");
-        if (n.length() < 3) throw new NegocioException("Nome deve ter ao menos 3 caracteres.");
-        if (n.length() > 120) throw new NegocioException("Nome deve ter no máximo 120 caracteres.");
-        return n;
-    }
-
-    private static String exigirEstado(String estado) {
-        if (estado == null) return null;
-        String uf = estado.toUpperCase(Locale.ROOT);
-        if (!UNIDADES_FEDERATIVAS.contains(uf))
-            throw new NegocioException("Estado inválido: use a sigla da unidade federativa, como MS.");
-        return uf;
-    }
-
-    /** Telefone é obrigatório (a coluna é {@code NOT NULL}) e precisa ter DDD e número. */
+    /** Telefone é obrigatório (a coluna é {@code NOT NULL}). */
     private static String exigirTelefone(String telefone) {
         if (telefone == null) throw new NegocioException("Telefone é obrigatório.");
-        if (telefone.replaceAll("\\D", "").length() < 10)
-            throw new NegocioException("Telefone inválido: informe DDD e número, como (67) 90000-0001.");
-        return limitar(telefone, 20, "Telefone");
-    }
-
-    private static String exigirEmail(String email) {
-        if (email == null) return null;
-        if (!email.matches("[^@\\s]+@[^@\\s.]+(\\.[^@\\s.]+)+"))
-            throw new NegocioException("E-mail inválido: use o formato nome@dominio.");
-        return limitar(email, 120, "E-mail");
-    }
-
-    /** Recusa antes do banco, para a tela dizer qual campo passou do tamanho em vez de erro de SQL. */
-    private static String limitar(String valor, int maximo, String nome) {
-        if (valor != null && valor.length() > maximo)
-            throw new NegocioException(nome + " deve ter no máximo " + maximo + " caracteres.");
-        return valor;
-    }
-
-    private static String opcional(String valor) {
-        if (valor == null) return null;
-        String v = valor.trim();
-        return v.isEmpty() ? null : v;
+        return Validacao.telefone(telefone);
     }
 
     @Override
