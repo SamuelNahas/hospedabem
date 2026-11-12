@@ -51,9 +51,8 @@ public class TelaHospede extends Pagina {
                 if (encontrados.isEmpty()) aviso.erro("Nenhum hóspede para \"" + t + "\".");
             });
         });
-        tabela.getSelectionModel().selectedItemProperty().addListener((obs, antes, h) -> {
-            if (h != null) selecionar(h);
-        });
+        // Sem seleção na lista (inclusive quando a busca a esvazia) não há hóspede a alterar ou excluir.
+        tabela.getSelectionModel().selectedItemProperty().addListener((obs, antes, h) -> selecionar(h));
 
         getChildren().addAll(
                 Campos.cartao("Hóspedes cadastrados", tabela, Campos.acoes(termo, buscar)),
