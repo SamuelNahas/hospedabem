@@ -42,11 +42,16 @@ final class Validacao {
 
     /**
      * Número nacional com DDD (ao menos 10 dígitos) ou internacional iniciado por "+" (de 8 a 15
-     * dígitos, o limite do E.164), para não barrar o telefone de quem mora fora do Brasil.
+     * dígitos, o limite do E.164), para não barrar o telefone de quem mora fora do Brasil. Aceita
+     * só algarismos, espaço, parênteses, ponto e hífen, e um ramal no fim ("r123" ou "ramal 123").
      */
     static String telefone(String telefone) {
         if (telefone == null) return null;
-        int digitos = telefone.replaceAll("\\D", "").length();
+        String numero = telefone.replaceFirst("(?i)\\s*(r|ramal)\\s*\\d+$", "");
+        if (!numero.matches("\\+?[0-9 ().-]+"))
+            throw new NegocioException("Telefone inválido: use só números, espaço, parênteses e hífen, "
+                    + "como (67) 90000-0001.");
+        int digitos = numero.replaceAll("\\D", "").length();
         boolean valido = telefone.startsWith("+") ? digitos >= 8 && digitos <= 15 : digitos >= 10;
         if (!valido)
             throw new NegocioException("Telefone inválido: informe DDD e número, como (67) 90000-0001, "

@@ -241,7 +241,7 @@ class HospedeIT extends IntegracaoBase {
                 insert.executeUpdate();
             }
             CompletableFuture<Void> exclusao = CompletableFuture.runAsync(() -> hospedes.excluir(marta));
-            Thread.sleep(500);
+            esperarAlgumaConexaoTravada();
             assertFalse(exclusao.isDone());
             outraEstacao.commit();
             ExecutionException erro = assertThrows(ExecutionException.class,
@@ -249,6 +249,31 @@ class HospedeIT extends IntegracaoBase {
             NegocioException negocio = assertInstanceOf(NegocioException.class, erro.getCause());
             assertTrue(negocio.getMessage().contains("não pode ser excluído"), negocio.getMessage());
         }
+        assertTrue(hospedes.buscar(CPF_NOVO).isPresent());
+    }
+
+    /** Espera a exclusão de fato bloquear na trava da linha, para o commit acontecer depois disso. */
+    private void esperarAlgumaConexaoTravada() throws InterruptedException {
+        for (int tentativa = 0; tentativa < 200; tentativa++) {
+            if (contar("SELECT COUNT(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock' "
+                    + "AND datname = current_database()") > 0) return;
+            Thread.sleep(50);
+        }
+        throw new AssertionError("A exclusão não chegou a esperar a trava do hóspede.");
+    }
+
+    @Test
+    void alteracaoComIdDiferenteDoSelecionadoEExclusaoDeCadastroDesatualizadoSaoRecusadas() {
+        Hospede marta = hospedes.incluir(minimo(CPF_NOVO, "Marta Teste"));
+        Hospede joao = hospedes.incluir(minimo(CPF_OUTRO, "João Teste"));
+        assertThrows(NegocioException.class, () -> hospedes.alterar(marta, Hospede.informado(joao.id(), CPF_OUTRO,
+                "João Sobrescrito", NASCIMENTO, null, null, null, "(67) 90000-0009", null)));
+        assertEquals(joao, hospedes.buscar(CPF_OUTRO).orElseThrow());
+
+        hospedes.alterar(marta, Hospede.informado(marta.id(), CPF_NOVO, "Marta Teste Nova", NASCIMENTO, null, null,
+                null, "(67) 90000-0009", null));
+        NegocioException erro = assertThrows(NegocioException.class, () -> hospedes.excluir(marta));
+        assertTrue(erro.getMessage().contains("alterado por outra estação"), erro.getMessage());
         assertTrue(hospedes.buscar(CPF_NOVO).isPresent());
     }
 

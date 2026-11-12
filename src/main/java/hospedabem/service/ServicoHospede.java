@@ -56,25 +56,34 @@ public class ServicoHospede {
      */
     @Transactional
     public void alterar(Hospede original, Hospede informado) {
-        Hospede h = validar(informado);
-        Hospede gravado = dao.buscarPorIdParaAtualizar(original.id()).orElseThrow(ServicoHospede::inexistente);
-        if (!gravado.equals(original))
-            throw new NegocioException("O hóspede " + gravado.nome() + " foi alterado por outra estação. "
+        if (original.id() != informado.id())
+            throw new NegocioException("Os dados informados não são do hóspede selecionado. "
                     + "Selecione-o de novo na lista e refaça a alteração.");
+        Hospede h = validar(informado);
+        exigirInalterado(original, "refaça a alteração");
         traduzindoDuplicidade(h, () -> dao.atualizar(h));
     }
 
     /**
-     * Exclui o hóspede se existir e não houver reserva ou hospedagem ligada a ele. A linha fica
-     * travada antes da contagem, então nenhuma estação cria vínculo entre a contagem e o
-     * {@code DELETE}.
+     * Exclui o hóspede se existir, estiver como o usuário confirmou e não houver reserva ou
+     * hospedagem ligada a ele. A linha fica travada antes da contagem, então nenhuma estação cria
+     * vínculo entre a contagem e o {@code DELETE}.
      */
     @Transactional
     public void excluir(Hospede h) {
-        Hospede gravado = dao.buscarPorIdParaAtualizar(h.id()).orElseThrow(ServicoHospede::inexistente);
+        Hospede gravado = exigirInalterado(h, "confirme a exclusão de novo");
         int vinculos = dao.contarVinculos(gravado.id());
         if (vinculos > 0) throw comVinculos(gravado, vinculos);
         dao.excluir(gravado.id());
+    }
+
+    /** Trava a linha e recusa se outra estação a alterou depois que o usuário a selecionou. */
+    private Hospede exigirInalterado(Hospede selecionado, String acao) {
+        Hospede gravado = dao.buscarPorIdParaAtualizar(selecionado.id()).orElseThrow(ServicoHospede::inexistente);
+        if (!gravado.equals(selecionado))
+            throw new NegocioException("O hóspede " + gravado.nome() + " foi alterado por outra estação. "
+                    + "Selecione-o de novo na lista e " + acao + ".");
+        return gravado;
     }
 
     private Hospede validar(Hospede informado) {

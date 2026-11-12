@@ -56,7 +56,10 @@ class HospedeTest {
                 "+1 555 0100", null).telefone());
         assertEquals("+123456789012345", Hospede.informado(0, "XP1234567", "John Test", NASCIMENTO, null, null,
                 null, "+123456789012345", null).telefone());
-        for (String telefone : new String[]{"+1 555 010", "+1234567890123456", "555 0100"}) {
+        assertEquals("(67) 3000-0001 r12", Hospede.informado(0, "XP1234567", "John Test", NASCIMENTO, null,
+                null, null, "(67) 3000-0001 r12", null).telefone());
+        for (String telefone : new String[]{"+1 555 010", "+1234567890123456", "555 0100", "abc11987654321",
+                "(67) 9000+0-0001", "67 90000-0001 r"}) {
             assertThrows(NegocioException.class, () -> Hospede.informado(0, "XP1234567", "John Test", NASCIMENTO,
                     null, null, null, telefone, null), "aceitou " + telefone);
         }
