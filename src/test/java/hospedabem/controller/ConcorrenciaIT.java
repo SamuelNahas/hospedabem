@@ -167,6 +167,41 @@ class ConcorrenciaIT extends IntegracaoBase {
     }
 
     /**
+     * UC09 × UC10: o cancelamento e o check-in da mesma reserva ao mesmo tempo. Exatamente um
+     * passa: ou a reserva foi convertida e há uma hospedagem ativa no quarto, ou foi cancelada e o
+     * quarto continua livre, sem hospedagem nem conta criadas pela metade.
+     */
+    @Test
+    void cancelamentoECheckInDaMesmaReservaNaoAcontecemAoMesmoTempo() throws Exception {
+        TipoQuarto t = criarTipo("CANC", 2);
+        for (int i = 0; i < 5; i++) criarQuarto(530 + i, t);
+        for (int rodada = 0; rodada < 5; rodada++) {
+            int quarto = 530 + rodada;
+            Reserva reserva = reservas.registrar(CARLOS, "CANC", HOJE, HOJE.plusDays(2), 1);
+            ControladorCheckIn c = checkIns.getObject();
+            c.iniciarCheckIn(reserva.getCodigo());
+            c.adicionarHospede(CARLOS);
+            c.selecionarQuarto(quarto);
+            Reserva resumo = reservas.consultar(reserva.getCodigo());
+
+            assertEquals(1, sucessosSimultaneos(List.of(c::confirmarCheckIn, () -> reservas.cancelar(resumo))),
+                    "rodada " + rodada);
+            int hospedagens = contar("SELECT COUNT(*) FROM hospedagem h JOIN reserva r ON r.id = h.reserva_id "
+                    + "WHERE r.codigo = ?", reserva.getCodigo());
+            String situacao = situacaoReserva(reserva.getCodigo());
+            if (situacao.equals("CONVERTIDA")) {
+                assertEquals(1, hospedagens, "rodada " + rodada);
+                assertEquals("OCUPADO", situacaoQuarto(quarto), "rodada " + rodada);
+            } else {
+                assertEquals("CANCELADA", situacao, "rodada " + rodada);
+                assertEquals(0, hospedagens, "rodada " + rodada);
+                assertEquals("DISPONIVEL", situacaoQuarto(quarto), "rodada " + rodada);
+            }
+        }
+        assertEquals(contar("SELECT COUNT(*) FROM hospedagem"), contar("SELECT COUNT(*) FROM conta_hospedagem"));
+    }
+
+    /**
      * Duas reservas remarcadas ao mesmo tempo para a mesma janela com um único quarto. Sem o
      * bloqueio do tipo de destino, cada transação recalcula a disponibilidade sem ver a outra, as
      * duas se dão por disponíveis e o tipo fica com duas reservas para um quarto.

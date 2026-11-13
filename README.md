@@ -285,13 +285,13 @@ Há quatro níveis de teste. Todos rodam com `mvn test`, exceto a mutação, que
 
 | Nível | Arquivos | O que cobre | Banco |
 |---|---|---|---|
-| Unitário | `*Test` (87 testes) | Todas as regras do `model` (`Atendimento`, `Quarto`, `Reserva`, `SolicitacaoReserva`, `TipoQuarto`, `Periodo`, `Ocupacao`, `Disponibilidade`, `Funcionario`, `PoliticaDeSenha`), `Sessao`, hash de senha, tradução de duplicidade simultânea, mensagens de erro, conversão de campos | não usa |
-| Integração | `*IT` (138 testes) | Controladores + services + DAOs + PostgreSQL: regras dos UCs entregues, transação do check-in, falha injetada na gravação, concorrência entre conexões, reinício | `hospedabem_test` |
-| Ponta a ponta (E2E) | `TelasE2E` (11 testes) | Telas JavaFX reais operadas como um usuário (`RoboFx`): login, permissões, cadastros, funcionários, hóspedes, disponibilidade, reserva, alteração e cancelamento de reserva, check-in com e sem reserva, consumo e check-out. Confere a tela e o banco. | `hospedabem_test` |
+| Unitário | `*Test` (89 testes) | Todas as regras do `model` (`Atendimento`, `Quarto`, `Reserva`, `SolicitacaoReserva`, `TipoQuarto`, `Periodo`, `Ocupacao`, `Disponibilidade`, `Funcionario`, `PoliticaDeSenha`), `Sessao`, hash de senha, tradução de duplicidade simultânea, mensagens de erro, conversão de campos | não usa |
+| Integração | `*IT` (145 testes) | Controladores + services + DAOs + PostgreSQL: regras dos UCs entregues, transação do check-in, falha injetada na gravação, concorrência entre conexões, reinício, atualização do banco da iteração 1 e aferição dos limites RNF-1/RNF-2 | `hospedabem_test` |
+| Ponta a ponta (E2E) | `TelasE2E` (12 testes) | Telas JavaFX reais operadas como um usuário (`RoboFx`): ciclo completo da iteração 2 numa única execução, login, permissões, cadastros, funcionários, hóspedes, disponibilidade, reserva, alteração e cancelamento de reserva, check-in com e sem reserva, consumo e check-out. Confere a tela e o banco. | `hospedabem_test` |
 | Mutação | PIT (`pitest-maven`) | Altera o código de `model`, `controller` e `service` e verifica se algum teste falha | `hospedabem_test` |
 
 ```bash
-mvn test                      # unitários + integração + E2E (138 testes)
+mvn test                      # unitários + integração + E2E (246 testes)
 mvn test -Dtest='*Test'       # somente unitários, sem banco
 mvn test -Dtest='TelasE2E' -Dhb.e2e.capturas=docs/telas   # E2E salvando a captura de cada passo
 mvn test-compile org.pitest:pitest-maven:mutationCoverage  # mutação; relatório em target/pit-reports/index.html
@@ -309,6 +309,9 @@ Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem mon
 | Iteração 2 (UC02), 05/11/2026 | OpenJDK 25 com `--release 17`, PostgreSQL 17.11 | **138**, 0 falhas, 0 erros (58 unitários, 73 de integração, 7 E2E) | **351 mutantes, 344 mortos (98%)** |
 | Iteração 2 (UC06), 09/11/2026 | OpenJDK 25 com `--release 17`, PostgreSQL 17.11 | **207**, 0 falhas, 0 erros (79 unitários, 118 de integração, 10 E2E) | **539 mutantes, 516 mortos (96%)** |
 | Iteração 2 (UC09), 13/11/2026 | OpenJDK 25 com `--release 17`, PostgreSQL 17.11 | **236**, 0 falhas, 0 erros (87 unitários, 138 de integração, 11 E2E) | **537 mutantes, 513 mortos (96%)** |
+| Iteração 2, validação final (#9), 13/11/2026 | OpenJDK 27 com `--release 17`, PostgreSQL 17.11 | **246**, 0 falhas, 0 erros (89 unitários, 145 de integração, 12 E2E); antes dela, 240 | **541 mutantes, 517 mortos (96%)** |
+
+A validação do ciclo completo e da regressão da iteração 2 — comandos, ambiente, resultado de cada critério e o que não foi validado — está em [`docs/validacao-iteracao-2.md`](docs/validacao-iteracao-2.md).
 
 O build exige no mínimo 95% (`mutationThreshold`). Na rodada do UC09 restaram 24 sobreviventes, nenhum no código do caso de uso entregue (`Reserva`, `ReservaDAO`, `ServicoReserva` e `ControladorReserva` ficaram sem sobreviventes). Eles se dividem assim:
 
@@ -436,16 +439,16 @@ O resultado aparece no PR. Para tornar sua aprovação obrigatória antes do mer
 
 | RNF | Situação |
 |---|---|
-| RNF-1, RNF-2 | Limites configurados (10 s e 3 s). Mensagens tratadas em `view/Mensagens.java`. Não houve teste de carga nem com rede degradada. |
+| RNF-1, RNF-2 | Limites configurados (10 s e 3 s) e conferidos na conexão por `LimitesRnfIT`, que também mede as operações da iteração 2 sobre 20 000 reservas e falha acima dos limites do requisito. Na rodada registrada em `docs/validacao-iteracao-2.md` todas ficaram abaixo de 100 ms, uma medição local que o teste não exige. Mensagens tratadas em `view/Mensagens.java`. Não houve teste de carga nem com rede degradada. |
 | RNF-3 (15 usuários) | O pool de 3 conexões por estação soma 45 conexões, abaixo do padrão de 100 do PostgreSQL. A concorrência foi testada com 2 conexões simultâneas (`ConcorrenciaIT`). **15 estações reais não foram testadas.** |
 | RNF-4, RNF-5 | Atomicidade testada. Backup por `pg_dump` documentado, mas não automatizado. |
 | RNF-6 (24×7) | Depende da implantação: servidor PostgreSQL com reinício automático, *nobreak* e backup. Não testado. |
 | RNF-7 | Atendido com hash PBKDF2 e teste correspondente, tanto no login quanto no cadastro e na redefinição de senha do UC02. |
-| RNF-8 (troca periódica) | Parcial: o UC02 já define a senha inicial, permite a redefinição pelo administrador e atualiza `senha_alterada_em` a cada troca, com a composição mínima em `PoliticaDeSenha`. Falta a troca pelo próprio funcionário e a exigência de renovação por vencimento. |
+| RNF-8 (troca periódica) | Atendido: senha definida pelo administrador é provisória, a senha vence pelo prazo de `PoliticaDeSenha` e a troca pelo próprio funcionário é exigida antes de qualquer operação (`TrocaSenhaIT`, `TelasE2E`). |
 | RNF-9 | Configuração de rede local documentada. Depende do `pg_hba.conf` e do *firewall*. |
 | RNF-10 | Atendido: perfis verificados no controlador e testados, inclusive a delegação do perfil de administrador no UC02, recusada para a recepcionista e para chamadas sem sessão. Nas gravações do UC02 o perfil do autor é reconferido no banco dentro da transação, para que uma sessão rebaixada por outra estação não mantenha os poderes antigos (decisão 20). |
 | RNF-11 | Camadas MVC com service e DAO por entidade. Cada camada só depende da de baixo (ver "Por que MVC em camadas"). |
-| RNF-12 | O check-in ocupa uma página com 4 etapas; a confirmação fica na última. Dentro do limite de 5. |
+| RNF-12 | O check-in ocupa uma página com 4 etapas; a confirmação fica na última. O check-out ocupa uma página com 3 cartões mais o diálogo de confirmação (2 telas). Dentro do limite de 5. |
 | RNF-13 | Java, JavaFX e PostgreSQL são multiplataforma. O Maven baixa os componentes nativos do JavaFX do sistema em que o build é feito: gere o JAR em cada sistema operacional de destino. **Executado apenas no macOS.** |
 | RNF-14 | Atendido com PostgreSQL, uma das duas opções do requisito. O SQL usa recursos do PostgreSQL (`RETURNING`, índice parcial e `FOR UPDATE OF`) para proteger as regras no próprio banco. |
 
