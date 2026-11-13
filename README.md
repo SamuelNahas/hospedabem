@@ -14,11 +14,30 @@ A iteração 1 implementou os seis casos de uso alocados na listagem de casos de
 | UC02 | Gerenciar Funcionário | administrador | 2 |
 | UC03 | Gerenciar Tipo de Quarto | administrador | 1 |
 | UC04 | Gerenciar Quarto | administrador | 1 |
+| UC06 | Gerenciar Hóspede | administrador, recepcionista | 2 |
 | UC07 | Consultar Disponibilidade de Quartos | administrador, recepcionista | 1 |
 | UC08 | Registrar Reserva | administrador, recepcionista | 1 |
 | UC10 | Realizar Check-in, com e sem reserva | administrador, recepcionista | 1 |
 
-Na iteração 2 também foram entregues o lançamento de consumo (UC11), o check-out com pagamento (UC12) e a troca periódica de senha (RNF-8). Ficam para as próximas iterações: cadastro de hóspedes (UC06), alteração e cancelamento de reservas (UC09), comprovantes/extrato impresso (UC14) e relatórios. O menu só mostra o que foi implementado.
+Na iteração 2 também foram entregues o cadastro de hóspedes (UC06), o lançamento de consumo (UC11), o check-out com pagamento (UC12) e a troca periódica de senha (RNF-8). Ficam para as próximas iterações: alteração e cancelamento de reservas (UC09), comprovantes/extrato impresso (UC14) e relatórios. O menu só mostra o que foi implementado.
+
+## Iteração 2 — UC06: cadastro de hóspedes
+
+A recepção e o administrador acessam **Cadastros → Hóspedes** para incluir, listar, buscar e alterar hóspedes e excluir os que ainda não têm vínculo. Diferente dos cadastros do UC02, UC03, UC04 e UC05, este **não** é restrito ao administrador: regularizar o cadastro é parte do atendimento, e é a recepcionista que o faz no meio de uma reserva ou de um check-in. Chamadas sem sessão continuam recusadas no controlador (RNF-10).
+
+Obrigatórios: identificação (CPF ou passaporte), nome, data de nascimento e telefone — o telefone porque a coluna sempre foi `NOT NULL`. O telefone nacional precisa de DDD (ao menos 10 dígitos); o internacional começa com `+` e tem de 8 a 15 dígitos, como o `+1 555 0100` do John. Opcionais: endereço, cidade, estado e e-mail; em branco, são gravados como `NULL`.
+
+Decisão da equipe para os RF-5, RF-7 e RF-8: a identificação é **CPF quando tem exatamente 11 dígitos** e **passaporte** caso contrário. O CPF é validado pelos dígitos verificadores e guardado apenas com dígitos; o passaporte aceita de 5 a 20 letras de A a Z e algarismos (há passaportes só numéricos, como os britânicos) e é guardado em maiúsculas; letras de outros alfabetos são recusadas para que um `Х` cirílico não drible a restrição `UNIQUE`. A pontuação é removida nos dois casos, então `529.982.247-25` e `52998224725` são o mesmo cadastro — é essa grafia única que a restrição `UNIQUE` da coluna usa para impedir identificação duplicada, inclusive entre estações simultâneas. A busca normaliza o termo do mesmo jeito, por isso encontra pelo documento digitado com ou sem pontuação, e também por parte do nome (espaços repetidos não atrapalham); `%` e `_` são procurados como texto, não como curinga.
+
+Exclusão: o hóspede com reserva (como responsável) ou com hospedagem **não é excluído**. A mensagem diz quantos vínculos existem e orienta a alterar os dados em vez de excluir, preservando o histórico (RN equivalente à do UC02). A linha do hóspede é travada (`FOR UPDATE`) antes da contagem, então nenhuma estação cria reserva ou hospedagem para ele entre a contagem e o `DELETE`. No sentido inverso, a reserva e a confirmação do check-in travam os hóspedes (`FOR KEY SHARE`) e, se algum foi excluído por outra estação, pedem para refazer o atendimento.
+
+Alteração: o serviço compara o cadastro gravado com o que estava na tela quando o hóspede foi selecionado; se outra estação alterou antes, a gravação é recusada em vez de sobrescrever.
+
+Integração com o UC08 e o UC10: o hóspede recém-incluído já serve à reserva e ao check-in, sem depender da carga inicial. As mensagens de "hóspede não cadastrado" não adiam mais o cadastro para a iteração 2: elas apontam a tela **Hóspedes** e, no check-in, pedem para reiniciar o atendimento depois de regularizar (atividade E da expansão do UC10 — o cadastro **não** é feito dentro do atendimento).
+
+Na inicialização, `db/migracoes/006_hospedes.sql` é aplicado tanto a bancos novos quanto aos da iteração 1, sem alterar colunas nem apagar dados: a tabela `hospede` já tinha todas as colunas do caso de uso desde a iteração 1, e o script só cria os índices que a conferência de vínculos usa.
+
+O UC06 segue as mesmas camadas dos demais cadastros: `Hospede`, `HospedeDAO`, `ServicoHospede`, `ControladorHospede` e `TelaHospede`. Como no UC02, `Hospede` tem dois caminhos de criação (decisão 21): `Hospede.informado(...)` valida o que foi digitado e é o único usado para gravar; o construtor do `record` apenas reconstitui a linha gravada e confere só os campos `NOT NULL`, porque os documentos fictícios da carga inicial (`11111111111`) não passam pelos dígitos verificadores e não podem derrubar a listagem nem o atendimento de quem está nelas. Os testes focados podem ser executados com `mvn test -Dtest='HospedeTest,HospedeIT'` e `mvn test -Dtest='TelasE2E#cadastroDeHospedePelaTelaPermiteUsarOHospedeNovoNoCheckInEProtegeOHistorico'`; todos usam exclusivamente `hospedabem_test`.
 
 ## Iteração 2 — UC05: itens de consumo e serviços
 
@@ -226,6 +245,7 @@ Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem mon
 |---|---|---|---|
 | Iteração 1, 03/11/2026 | OpenJDK 27 com `--release 17`, PostgreSQL 17 | **102**, 0 falhas, 0 erros (41 unitários, 55 de integração, 6 E2E) | **234 mutantes, 228 mortos (97%)** |
 | Iteração 2 (UC02), 05/11/2026 | OpenJDK 25 com `--release 17`, PostgreSQL 17.11 | **138**, 0 falhas, 0 erros (58 unitários, 73 de integração, 7 E2E) | **351 mutantes, 344 mortos (98%)** |
+| Iteração 2 (UC06), 09/11/2026 | OpenJDK 25 com `--release 17`, PostgreSQL 17.11 | **207**, 0 falhas, 0 erros (79 unitários, 118 de integração, 10 E2E) | **539 mutantes, 516 mortos (96%)** |
 
 Nenhum mutante ficou sem cobertura. O build exige no mínimo 95% (`mutationThreshold`). Os 7 sobreviventes da última rodada são equivalentes ao original ou inobserváveis em teste:
 
@@ -286,6 +306,7 @@ O resultado aparece no PR. Para tornar sua aprovação obrigatória antes do mer
 | UC03 | `TelaTipoQuarto` | `ControladorTipoQuarto` | `TelasE2E`, `DominioTest`, `CadastroIT`: inclusão/busca/alteração/exclusão, código duplicado, valores inválidos, exclusão com quarto ou reserva, redução de capacidade abaixo de reserva |
 | UC04 | `TelaQuarto` | `ControladorQuarto` | `TelasE2E`, `DominioTest`, `CadastroIT`: número duplicado, tipo inexistente, ocupado/reservado pelo cadastro, RN-Q04 (hospedagem ativa), RN-Q05 (manutenção/troca de tipo/exclusão inviabilizando reserva, com dados preservados), RN-Q06 (histórico) |
 | UC05 | `TelaItemConsumo` | `ControladorItemConsumo` | `ItemConsumoIT`, `TelasE2E`: CRUD, normalização, duplicidade, campos e preço, autorização, item inexistente, histórico de consumo, migração e reinício |
+| UC06 | `TelaHospede` (lista, busca por documento ou nome, formulário com os opcionais) | `ControladorHospede`, `ServicoHospede` | `HospedeTest` (CPF com dígitos verificadores, passaporte inclusive só numérico, letras de outros alfabetos recusadas, telefone internacional, normalização, campos obrigatórios e opcionais, UF, telefone, e-mail, limites das colunas, data de nascimento futura ou absurda, linha da carga inicial reconstituída); `HospedeDAOTest` (normalização do documento); `HospedeIT` (CRUD pela recepcionista, opcionais ausentes gravados como `NULL`, CPF e passaporte, identificação inválida e duplicada na inclusão e na alteração com dados preservados, hóspede inexistente, chamadas sem sessão em todas as operações e os dois perfis aceitos, exclusão recusada com reserva e com hospedagem, hóspede novo usado na reserva e no check-in, mensagens do UC08 e do UC10 e reinício do atendimento, migração dos índices sem perder dados, exclusão concorrente com reserva em andamento, acompanhante excluído antes da confirmação do check-in, alteração sobre cadastro desatualizado, busca com pontuação e curinga, estrangeiro da carga alterado); `TelasE2E` (inclusão, duplicidade, busca com pontuação, uso no check-in e impedimento de exclusão) |
 | UC07 | `TelaDisponibilidade` | `ControladorDisponibilidade`, `ServicoDisponibilidade` | `TelasE2E`, `OcupacaoTest` (período inválido, sobreposição, adjacência, reservas que não se sobrepõem entre si); `DisponibilidadeIT` (manutenção, convertida não contada duas vezes, cancelada, hospedagem atrasada) |
 | UC08 | `TelaReserva` | `ControladorReserva` | `TelasE2E`, `ReservaIT` (válida com funcionário da sessão, capacidade, indisponibilidade, responsável/tipo/período inválidos); `ConcorrenciaIT` (última vaga) |
 | UC10 | `TelaCheckIn` (4 etapas em cartões, a última com a confirmação) | `ControladorCheckIn` | `TelasE2E` (com e sem reserva, pela tela); `DominioTest`; `CheckInIT` (etapas fora de ordem, reserva ou quarto apagados, pós-condições do contrato, sem reserva, reserva inexistente/convertida/cancelada/futura, hóspede inexistente/duplicado/excesso, responsável ausente, sem quarto, reserva alterada ou cancelada após o resumo, quarto ocupado ou em manutenção após o resumo, falha na gravação sem resultado parcial, unicidade no banco); `ConcorrenciaIT` (mesmo quarto, check-in × reserva); `PersistenciaIT` (reinício) |
@@ -306,7 +327,7 @@ O resultado aparece no PR. Para tornar sua aprovação obrigatória antes do mer
 12. **Check-in com reserva** só é aceito de hoje até a saída prevista. A hospedagem vai de hoje até a saída da reserva. Check-in antecipado exige alterar a reserva (UC09, iteração 2). **Sem reserva**, a data de entrada informada precisa ser hoje, pois o check-in registra a entrada efetiva.
 13. **O responsável deve estar entre os participantes** (fluxo principal, passo 3) e cada hóspede é contado uma vez.
 14. **Mudança de reserva entre o resumo e a confirmação** é detectada pela coluna `versao`, incrementada a cada atualização, e pela comparação de situação, tipo, período, quantidade e responsável.
-15. **Hóspede não cadastrado:** como o UC06 é da iteração 2, a mensagem informa o impedimento. Use os hóspedes da carga inicial.
+15. **Hóspede não cadastrado:** a mensagem aponta a tela **Hóspedes** (UC06). Na reserva, basta cadastrar e registrar em seguida; no check-in, o atendimento é **reiniciado** depois de regularizar o cadastro, conforme a atividade E da expansão do UC10 — o cadastro não é feito dentro do atendimento.
 16. **Senhas:** PBKDF2-HMAC-SHA256 com 210.000 iterações e *salt* de 16 bytes. Os documentos dizem "criptografadas", mas o hash não é reversível de propósito. O login gasta o mesmo tempo para matrícula existente ou inexistente.
 17. **Códigos** de reserva (a partir de 1001) e de hospedagem (a partir de 5001) vêm de sequências do banco. O código do tipo de quarto é texto (por exemplo, `STD`), e não `int` como no DCP, porque é o código que o recepcionista lê e digita nas telas de reserva e check-in.
 18. **JavaFX pelo classpath:** o JAR único (Spring Boot) carrega o JavaFX do classpath. Por isso, `App` não estende `Application` e delega a `view/AplicacaoFx`. O aviso `Unsupported JavaFX configuration` no log é esperado e não afeta o funcionamento.
@@ -362,7 +383,6 @@ O resultado aparece no PR. Para tornar sua aprovação obrigatória antes do mer
 
 O Processo Unificado é iterativo: cada iteração entrega um conjunto de casos de uso completo, da análise ao código testado. Ficam para as próximas iterações, conforme a listagem de casos de uso:
 
-- UC06 (hóspedes). O modelo, as consultas e a carga fictícia que ele vai usar já existem.
 - RNF-8: troca de senha pelo próprio funcionário e exigência de renovação periódica. O UC02 já entregou a definição e a redefinição da senha, a coluna `senha_alterada_em` atualizada a cada troca e a `PoliticaDeSenha`; falta definir o prazo de validade e bloquear as operações até a renovação.
 - UC05, UC09, UC11 e UC12, conforme a listagem de casos de uso.
 

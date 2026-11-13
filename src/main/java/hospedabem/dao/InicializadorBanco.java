@@ -36,6 +36,8 @@ public class InicializadorBanco {
                 + "WHERE table_name = 'pagamento' AND column_name = 'valor_total' AND numeric_precision = 15");
         executarSeFaltar("db/migracoes/005_senha.sql", "SELECT 1 FROM information_schema.columns "
                 + "WHERE table_name = 'funcionario' AND column_name = 'senha_provisoria'");
+        executarSeFaltar("db/migracoes/006_hospedes.sql",
+                "SELECT 1 FROM pg_indexes WHERE indexname = 'hospedagem_hospede_hospede'");
         return vazio;
     }
 
