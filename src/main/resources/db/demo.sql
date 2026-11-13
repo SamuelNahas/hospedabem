@@ -1,4 +1,5 @@
--- CARGA EXTRA FICTÍCIA PARA DEMONSTRAÇÃO (java -jar target/hospedabem.jar --hb.demo=true). Executada depois de seed.sql.
+-- CARGA EXTRA FICTÍCIA PARA DEMONSTRAÇÃO (java -jar target/hospedabem.jar --hb.demo=true).
+-- Executada somente em banco novo, depois da carga básica e de todas as migrações.
 -- Não altera os dados de seed.sql: tipos STD e LUX, quartos 101 a 202 e reserva 1001 continuam iguais.
 -- Reservas e hospedagens usam códigos próprios (2001+ e 9001+), então as próximas geradas pelo sistema
 -- continuam sendo a reserva 1002 e a hospedagem 5001.
@@ -60,3 +61,35 @@ FROM hospedagem hg
 JOIN quarto q ON q.id = hg.quarto_id
 JOIN tipo_quarto t ON t.id = q.tipo_quarto_id
 WHERE hg.codigo IN (9001, 9002);
+
+-- Um check-out já concluído para contrastar com a conta ainda pendente da hospedagem 9001.
+INSERT INTO hospedagem (codigo, data_hora_entrada, data_saida_prevista, data_hora_saida,
+                       situacao, quarto_id, funcionario_id)
+SELECT 9003, CURRENT_DATE - INTERVAL '3 days' + INTERVAL '14 hours', CURRENT_DATE - 1,
+       CURRENT_DATE - INTERVAL '1 day' + INTERVAL '10 hours', 'ENCERRADA', q.id, f.id
+FROM quarto q CROSS JOIN funcionario f WHERE q.numero = 502 AND f.matricula = 'recep01';
+
+INSERT INTO hospedagem_hospede (hospedagem_id, hospede_id)
+SELECT hg.id, h.id FROM hospedagem hg CROSS JOIN hospede h
+WHERE hg.codigo = 9003 AND h.cpf_ou_passaporte = '12312312312';
+
+INSERT INTO conta_hospedagem (hospedagem_id, situacao, valor_diaria, aberta_em, fechada_em)
+SELECT h.id, 'FECHADA', 260.00, h.data_hora_entrada, h.data_hora_saida
+FROM hospedagem h WHERE h.codigo = 9003;
+
+INSERT INTO item_consumo (codigo, descricao, categoria, preco) VALUES
+('AGUA', 'Água mineral', 'Frigobar', 5.50),
+('LAVANDERIA', 'Lavagem de roupa', 'Lavanderia', 25.00);
+
+INSERT INTO consumo (conta_hospedagem_id, item_consumo_id, quantidade, preco_unitario,
+                     data_hora, funcionario_id, codigo_item, descricao_item)
+SELECT c.id, i.id, 2, i.preco, h.data_hora_entrada + INTERVAL '1 hour', f.id, i.codigo, i.descricao
+FROM conta_hospedagem c JOIN hospedagem h ON h.id = c.hospedagem_id
+CROSS JOIN item_consumo i CROSS JOIN funcionario f
+WHERE h.codigo IN (9001, 9003) AND i.codigo = 'AGUA' AND f.matricula = 'recep01';
+
+INSERT INTO pagamento (conta_hospedagem_id, forma, quantidade_diarias, valor_diarias,
+                       valor_consumos, valor_total, confirmado_em, funcionario_id)
+SELECT c.id, 'PIX', 2, 520.00, 11.00, 531.00, h.data_hora_saida, f.id
+FROM conta_hospedagem c JOIN hospedagem h ON h.id = c.hospedagem_id CROSS JOIN funcionario f
+WHERE h.codigo = 9003 AND f.matricula = 'recep01';
