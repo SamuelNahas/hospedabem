@@ -87,7 +87,7 @@ public class TelaAlteracaoReserva extends Pagina {
         Tarefa.executar(salvar, aviso, () -> controlador.alterar(alvo, doc, codTipo,
                 Campos.data(de, "Entrada prevista"), Campos.data(ate, "Saída prevista"),
                 Campos.inteiro(qtd, "Quantidade de hóspedes")), r -> {
-                    preencher(r);
+                    if (localizada == alvo) preencher(r); // o usuário não localizou outra reserva enquanto gravava
                     aviso.sucesso("Reserva " + r.getCodigo() + " alterada · " + resumo(r));
                 });
     }
@@ -97,7 +97,7 @@ public class TelaAlteracaoReserva extends Pagina {
         if (!Campos.confirmar("Cancelar a reserva " + alvo.getCodigo() + " de " + alvo.getResponsavel().nome()
                 + "? O registro é preservado e a capacidade volta à disponibilidade.")) return;
         Tarefa.executar(cancelar, aviso, () -> controlador.cancelar(alvo), r -> {
-            preencher(r);
+            if (localizada == alvo) preencher(r);
             aviso.sucesso("Reserva " + r.getCodigo() + " cancelada. A capacidade do tipo "
                     + r.getTipo().codigo() + " voltou à consulta de disponibilidade.");
         });

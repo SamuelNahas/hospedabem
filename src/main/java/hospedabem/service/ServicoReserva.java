@@ -117,10 +117,14 @@ public class ServicoReserva {
      * Registro e alteração travam tipos antes do hóspede, na mesma ordem do check-in (UC10).
      */
     private TipoQuarto bloquearTipos(String codigoTipo, List<Integer> outros) {
+        int travado = buscarTipo(codigoTipo).id();
         var ids = new ArrayList<>(outros);
-        ids.add(buscarTipo(codigoTipo).id());
+        ids.add(travado);
         tipoDAO.bloquear(ids);
-        return buscarTipo(codigoTipo);
+        TipoQuarto relido = buscarTipo(codigoTipo);
+        if (relido.id() != travado)
+            throw new NegocioException("O tipo de quarto " + codigoTipo + " foi alterado por outra estação. Tente de novo.");
+        return relido;
     }
 
     private Hospede bloquearResponsavel(String cpfResponsavel) {

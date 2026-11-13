@@ -199,6 +199,10 @@ final class RoboFx {
         });
     }
 
+    List<?> itensDaTabela() {
+        return naFx(() -> List.copyOf(todos(TableView.class).get(0).getItems()));
+    }
+
     int linhasDaTabela() {
         return naFx(() -> todos(TableView.class).get(0).getItems().size());
     }

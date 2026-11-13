@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Duas conexões simultâneas disputando a última vaga do tipo, o mesmo quarto ou o último perfil de administrador. */
 class ConcorrenciaIT extends IntegracaoBase {
@@ -200,6 +201,11 @@ class ConcorrenciaIT extends IntegracaoBase {
         Reserva r = reservaDeUmHospede("CAPA");
         try (Connection outra = jdbc.getDataSource().getConnection()) {
             outra.setAutoCommit(false);
+            int pidDaTrava;
+            try (var rs = outra.createStatement().executeQuery("SELECT pg_backend_pid()")) {
+                rs.next();
+                pidDaTrava = rs.getInt(1);
+            }
             try (var st = outra.prepareStatement("UPDATE tipo_quarto SET capacidade_maxima = 1 WHERE id = ?")) {
                 st.setInt(1, r.getTipo().id());
                 st.executeUpdate();
@@ -208,9 +214,12 @@ class ConcorrenciaIT extends IntegracaoBase {
             try {
                 Future<?> alteracao = pool.submit(() -> reservas.alterar(r, CARLOS, "CAPA", r.getPeriodo().entrada(),
                         r.getPeriodo().saida(), 3));
+                // Só libera a trava depois de ver a alteração presa justamente nela.
                 long limite = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-                while (contar("SELECT COUNT(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock'") == 0
-                        && System.nanoTime() < limite) Thread.onSpinWait(); // a alteração está esperando a trava
+                boolean esperando = false;
+                while (!esperando && System.nanoTime() < limite) esperando = contar(
+                        "SELECT COUNT(*) FROM pg_stat_activity WHERE ? = ANY(pg_blocking_pids(pid))", pidDaTrava) > 0;
+                assertTrue(esperando, "a alteração não chegou a esperar pela trava do tipo");
                 outra.commit();
                 var erro = assertThrows(ExecutionException.class, () -> alteracao.get(30, TimeUnit.SECONDS));
                 assertInstanceOf(NegocioException.class, erro.getCause());
