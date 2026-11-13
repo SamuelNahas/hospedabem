@@ -5,6 +5,7 @@ import hospedabem.controller.Sessao;
 import hospedabem.controller.ControladorItemConsumo;
 import javafx.scene.control.ButtonType;
 import hospedabem.dao.InicializadorBanco;
+import hospedabem.model.Disponibilidade;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -549,6 +550,8 @@ class TelasE2E {
         robo.clicar("Consultar");
         assertTrue(robo.exibeTexto("Disponibilidade"));
         assertEquals(3, robo.linhasDaTabela());
+        assertEquals(2, robo.itensDaTabela().stream().map(Disponibilidade.class::cast)
+                .filter(d -> d.tipo().codigo().equals("LUX")).findFirst().orElseThrow().livres()); // 201 e 202
     }
 
     /** Preenche o formulário do hóspede com os campos obrigatórios do UC06. */
