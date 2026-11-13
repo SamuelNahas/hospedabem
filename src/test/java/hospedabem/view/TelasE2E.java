@@ -1,11 +1,11 @@
 package hospedabem.view;
 
 import hospedabem.BancoDeTeste;
-import hospedabem.controller.Sessao;
 import hospedabem.controller.ControladorItemConsumo;
-import javafx.scene.control.ButtonType;
+import hospedabem.controller.Sessao;
 import hospedabem.dao.InicializadorBanco;
 import hospedabem.model.Disponibilidade;
+import javafx.scene.control.ButtonType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +16,8 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.math.BigDecimal;
+import java.sql.Date;
 import java.time.LocalDate;
 import java.util.Map;
 
@@ -160,7 +162,7 @@ class TelasE2E {
         robo.escrever("Preço (R$)", "6.25");
         robo.clicar("Salvar");
         assertEquals("Item AGUA gravado.", robo.aviso());
-        assertEquals(new java.math.BigDecimal("6.25"),
+        assertEquals(new BigDecimal("6.25"),
                 contexto.getBean(ControladorItemConsumo.class).buscar("AGUA").orElseThrow().preco());
         robo.selecionarLinha(0);
         robo.capturar("itens-de-consumo");
@@ -552,6 +554,120 @@ class TelasE2E {
         assertEquals(3, robo.linhasDaTabela());
         assertEquals(2, robo.itensDaTabela().stream().map(Disponibilidade.class::cast)
                 .filter(d -> d.tipo().codigo().equals("LUX")).findFirst().orElseThrow().livres()); // 201 e 202
+    }
+
+    /**
+     * Issue #9: o ciclo operacional da iteração 2 numa única execução, só pelas telas e sem carga
+     * extra: funcionário e hóspede novos, catálogo, reserva, alteração, check-in, consumo,
+     * pagamento recusado e confirmado, check-out e o quarto de volta à disponibilidade.
+     */
+    @Test
+    void cicloCompletoDaIteracaoDoisPelasTelas() {
+        // Administrador: funcionário novo, hóspede novo e item do catálogo.
+        entrar("admin01", "Admin@123");
+        robo.clicar("Funcionários");
+        robo.escrever("Matrícula", "lara01");
+        robo.escrever("CPF", "000.000.003-53");
+        robo.escrever("Nome", "Lara Teste Prado");
+        robo.escolher("Perfil", p -> p.toString().equals("RECEPCIONISTA"));
+        robo.escrever("Senha", "Lara@2026");
+        robo.clicar("Salvar");
+        assertEquals("Funcionário lara01 gravado como recepcionista.", robo.aviso());
+        robo.clicar("Hóspedes");
+        preencherHospede("529.982.247-25", "Marta Teste Nova");
+        robo.clicar("Salvar");
+        assertTrue(robo.aviso().startsWith("Hóspede Marta Teste Nova (52998224725) gravado."), robo.aviso());
+        robo.clicar("Itens de consumo e serviços");
+        robo.escrever("Código", "AGUA");
+        robo.escrever("Descrição", "Água mineral");
+        robo.escrever("Categoria", "Frigobar");
+        robo.escrever("Preço (R$)", "5,50");
+        robo.clicar("Salvar");
+        assertEquals("Item AGUA gravado.", robo.aviso());
+        robo.clicar("Sair");
+
+        // A recepcionista nova troca a senha provisória no primeiro acesso.
+        entrar("lara01", "Lara@2026");
+        robo.escrever("Senha atual", "Lara@2026");
+        robo.escrever("Nova senha", "Propria2026");
+        robo.escrever("Confirme a nova senha", "Propria2026");
+        robo.clicar("Trocar senha");
+        assertTrue(robo.desabilitado("Funcionários")); // acesso de recepcionista
+
+        // Reserva e alteração.
+        robo.clicar("Registrar reserva");
+        robo.escreverNoCampoComDica("CPF ou passaporte", "52998224725");
+        robo.clicar("Buscar hóspede");
+        robo.escolher("Tipo de quarto", t -> t.toString().startsWith("STD"));
+        robo.escreverData("Entrada prevista", HOJE);
+        robo.escreverData("Saída prevista", HOJE.plusDays(2));
+        robo.escrever("Quantidade de hóspedes", "1");
+        robo.clicar("Confirmar reserva");
+        assertTrue(robo.aviso().startsWith("Reserva 1002 registrada"), robo.aviso());
+        robo.clicar("Alterar/cancelar reserva");
+        robo.escrever("Código da reserva", "1002");
+        robo.clicar("Localizar reserva");
+        robo.escreverData("Saída prevista", HOJE.plusDays(3));
+        robo.clicar("Salvar alteração");
+        assertTrue(robo.aviso().startsWith("Reserva 1002 alterada"), robo.aviso());
+
+        // Check-in da reserva alterada.
+        robo.clicar("Check-in");
+        robo.escrever("Código da reserva", "1002");
+        robo.clicar("Iniciar check-in");
+        robo.escreverNoCampoComDica("CPF ou passaporte do hóspede", "52998224725");
+        robo.clicar("Adicionar hóspede");
+        robo.clicar("Consultar quartos disponíveis");
+        robo.selecionarLinha(0);
+        robo.clicar("Selecionar quarto");
+        robo.clicar("Confirmar check-in");
+        assertTrue(robo.aviso().startsWith("Check-in realizado com sucesso. Hospedagem 5001"), robo.aviso());
+        assertEquals(1, livresStd());
+
+        // Consumo, pagamento não confirmado e check-out.
+        robo.clicar("Lançar consumo");
+        robo.selecionarLinha(0);
+        robo.aguardar();
+        robo.escolher("Item", i -> i.toString().startsWith("AGUA"));
+        robo.escrever("Quantidade", "2");
+        robo.clicar("Lançar");
+        assertEquals("Lançado: 2 × Água mineral = R$\u00a011,00.", robo.aviso());
+        robo.clicar("Check-out");
+        robo.selecionarLinha(0);
+        robo.clicar("Conferir conta");
+        assertTrue(robo.exibeTexto("Total a pagar: R$\u00a0191,00")); // 1 diária STD + 2 águas
+        robo.clicar("Confirmar pagamento e check-out");
+        assertEquals("Selecione a forma de pagamento.", robo.aviso());
+        robo.escolher("Forma", f -> f.toString().equals("Cartão de débito"));
+        robo.clicarEConfirmar("Confirmar pagamento e check-out", ButtonType.NO);
+        assertEquals("0", consultar("SELECT COUNT(*) FROM pagamento"));
+        assertEquals("ATIVA", consultar("SELECT situacao FROM hospedagem WHERE codigo = 5001"));
+        robo.clicarEConfirmar("Confirmar pagamento e check-out", ButtonType.YES);
+        assertTrue(robo.aviso().startsWith("Check-out da hospedagem 5001 concluído"), robo.aviso());
+        robo.capturar("ciclo-completo-check-out");
+
+        // O quarto liberado volta à disponibilidade.
+        assertEquals("0", consultar("SELECT COUNT(*) FROM quarto WHERE situacao = 'OCUPADO'"));
+        assertEquals(2, livresStd());
+        Map<String, Object> registro = jdbc.queryForMap("""
+                SELECT f.matricula, r.situacao AS reserva, r.data_saida_prevista, p.forma, p.valor_total
+                FROM hospedagem h JOIN reserva r ON r.id = h.reserva_id JOIN funcionario f ON f.id = h.funcionario_id
+                JOIN conta_hospedagem c ON c.hospedagem_id = h.id JOIN pagamento p ON p.conta_hospedagem_id = c.id
+                WHERE h.codigo = 5001""");
+        assertEquals("lara01", registro.get("matricula"));
+        assertEquals("CONVERTIDA", registro.get("reserva"));
+        assertEquals(Date.valueOf(HOJE.plusDays(3)), registro.get("data_saida_prevista"));
+        assertEquals("CARTAO_DEBITO", registro.get("forma"));
+        assertEquals(new BigDecimal("191.00"), registro.get("valor_total"));
+    }
+
+    /** Quartos STD livres de hoje a amanhã, pela tela de disponibilidade. */
+    private int livresStd() {
+        robo.clicar("Disponibilidade");
+        robo.escreverData("Saída", HOJE.plusDays(1));
+        robo.clicar("Consultar");
+        return robo.itensDaTabela().stream().map(Disponibilidade.class::cast)
+                .filter(d -> d.tipo().codigo().equals("STD")).findFirst().orElseThrow().livres();
     }
 
     /** Preenche o formulário do hóspede com os campos obrigatórios do UC06. */
