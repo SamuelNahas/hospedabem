@@ -3,6 +3,7 @@ package hospedabem.view;
 import hospedabem.controller.ControladorDisponibilidade;
 import hospedabem.controller.ControladorReserva;
 import hospedabem.model.Reserva;
+import hospedabem.model.SituacaoReserva;
 import hospedabem.model.TipoQuarto;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -57,11 +58,12 @@ public class TelaAlteracaoReserva extends Pagina {
 
     private void localizar(Button origem) {
         String texto = codigo.getText();
+        preencher(null); // a busca que falhar não deixa a reserva anterior no formulário
         Tarefa.executar(origem, aviso, () -> controlador.consultar(Campos.inteiro(texto, "Código da reserva")),
                 this::preencher);
     }
 
-    /** Mostra os dados e a situação da reserva localizada; sem reserva, não há o que alterar. */
+    /** Mostra os dados e a situação da reserva localizada; só a CONFIRMADA pode ser alterada ou cancelada. */
     private void preencher(Reserva r) {
         localizada = r;
         situacao.setText(r == null ? "—" : resumo(r));
@@ -70,8 +72,9 @@ public class TelaAlteracaoReserva extends Pagina {
         entrada.getEditor().setText(r == null ? "" : Campos.texto(r.getPeriodo().entrada()));
         saida.getEditor().setText(r == null ? "" : Campos.texto(r.getPeriodo().saida()));
         quantidade.setText(r == null ? "" : String.valueOf(r.getQuantidadeHospedes()));
-        salvar.setDisable(r == null);
-        cancelar.setDisable(r == null);
+        boolean alteravel = r != null && r.getSituacao() == SituacaoReserva.CONFIRMADA;
+        salvar.setDisable(!alteravel);
+        cancelar.setDisable(!alteravel);
     }
 
     private void salvar() {

@@ -1,21 +1,26 @@
 package hospedabem.controller;
 
 import hospedabem.model.Funcionario;
+import hospedabem.model.NegocioException;
 import hospedabem.model.Perfil;
 import hospedabem.model.Reserva;
 import hospedabem.model.TipoQuarto;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** Duas conexões simultâneas disputando a última vaga do tipo, o mesmo quarto ou o último perfil de administrador. */
 class ConcorrenciaIT extends IntegracaoBase {
@@ -184,6 +189,42 @@ class ConcorrenciaIT extends IntegracaoBase {
                             + " AND data_entrada_prevista >= ? AND data_entrada_prevista < ?",
                     t.id(), HOJE.plusDays(base + 40), HOJE.plusDays(base + 50)), "rodada " + rodada);
         }
+    }
+
+    /**
+     * Outra estação trava o tipo e reduz a capacidade de 3 para 1 enquanto a alteração espera pela
+     * trava. A alteração precisa validar a capacidade relida depois da trava, não a lida antes.
+     */
+    @Test
+    void alteracaoValidaACapacidadeGravadaPorUmUC05Concorrente() throws Exception {
+        Reserva r = reservaDeUmHospede("CAPA");
+        try (Connection outra = jdbc.getDataSource().getConnection()) {
+            outra.setAutoCommit(false);
+            try (var st = outra.prepareStatement("UPDATE tipo_quarto SET capacidade_maxima = 1 WHERE id = ?")) {
+                st.setInt(1, r.getTipo().id());
+                st.executeUpdate();
+            }
+            ExecutorService pool = Executors.newSingleThreadExecutor();
+            try {
+                Future<?> alteracao = pool.submit(() -> reservas.alterar(r, CARLOS, "CAPA", r.getPeriodo().entrada(),
+                        r.getPeriodo().saida(), 3));
+                long limite = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+                while (contar("SELECT COUNT(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock'") == 0
+                        && System.nanoTime() < limite) Thread.onSpinWait(); // a alteração está esperando a trava
+                outra.commit();
+                var erro = assertThrows(ExecutionException.class, () -> alteracao.get(30, TimeUnit.SECONDS));
+                assertInstanceOf(NegocioException.class, erro.getCause());
+            } finally {
+                pool.shutdownNow();
+            }
+        }
+        assertEquals(1, reservas.consultar(r.getCodigo()).getQuantidadeHospedes());
+    }
+
+    Reserva reservaDeUmHospede(String codigoTipo) {
+        TipoQuarto t = criarTipo(codigoTipo, 3);
+        criarQuarto(600 + t.id(), t);
+        return reservas.registrar(CARLOS, codigoTipo, HOJE.plusDays(1), HOJE.plusDays(3), 1);
     }
 
     /** Simula duas estações migrando o mesmo banco e verifica que a reserva existente é preservada. */

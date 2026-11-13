@@ -238,6 +238,8 @@ class ReservaIT extends IntegracaoBase {
         Reserva r = reservas.consultar(RESERVA_CARGA);
         assertThrows(NegocioException.class, () -> reservas.alterar(r, "99999999999", "LUX", HOJE, HOJE.plusDays(4), 2));
         assertThrows(NegocioException.class, () -> reservas.alterar(r, CARLOS, "NADA", HOJE, HOJE.plusDays(4), 2));
+        assertEquals("Selecione o tipo de quarto.", assertThrows(NegocioException.class,
+                () -> reservas.alterar(r, CARLOS, null, HOJE, HOJE.plusDays(4), 2)).getMessage());
         assertThrows(NegocioException.class, () -> reservas.alterar(r, CARLOS, "LUX", HOJE.plusDays(4), HOJE.plusDays(2), 2));
         assertThrows(NegocioException.class, () -> reservas.alterar(r, CARLOS, "LUX", HOJE.minusDays(1), HOJE.plusDays(4), 2));
         assertThrows(NegocioException.class, () -> reservas.alterar(r, CARLOS, "LUX", HOJE, HOJE.plusDays(4), 4));
