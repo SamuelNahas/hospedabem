@@ -14,6 +14,8 @@ sh scripts/empacotar-iteracao-2.sh
 
 O resultado é `target/GrupoN_Iteracao2.zip`. O script confere a integridade do arquivo e recusa entradas fora de `src/`. Ele copia a pasta fonte, acrescentando `src/entrega/pom.xml`, `src/entrega/config/checkstyle.xml`, o README e a documentação atuais. A cópia ocorre no staging temporário; não cria versões duplicadas desses arquivos na árvore fonte. Rode o script novamente depois de qualquer alteração para que o ZIP contenha a entrega final.
 
+O README empacotado é uma referência do repositório completo; seus comandos de Docker, CI e geração do ZIP pressupõem esse checkout. O aviso inicial encaminha a quem recebeu somente o ZIP para `src/LEIA-ME.md`, com os comandos próprios de reconstrução e execução. Os links da documentação para arquivos de CI/templates ausentes no pacote apontam para o GitHub.
+
 Para conferir usando apenas o ZIP, extraia-o em uma pasta vazia. Dentro dessa pasta:
 
 ```sh
@@ -35,6 +37,6 @@ Em 13/11/2026, no macOS com OpenJDK 27 compilando para Java 17 e Maven 3.10:
 - Regressão focada `mvn test -Dtest='DemonstracaoIT,ItemConsumoIT,MigracaoIteracaoUmIT'`: 12 testes aprovados, sem falhas/erros, incluindo inicialização sem demonstração e atualização dos dados da primeira iteração.
 - O ZIP foi gerado, verificado com `unzip -tq`, extraído em pasta limpa e reconstruído a partir do POM e da configuração incluídos: 89 testes unitários aprovados sem falhas/erros e JAR empacotado com sucesso.
 
-Os resultados da suíte completa e as capturas da entrega final devem ser conferidos na PR desta issue. A validação anterior de 246 testes e PIT de 96% está no relatório da #9 e não significa nova execução de mutação nesta atividade. A carga acrescenta um teste de integração; a contagem final depende da execução da suíte sobre todos os commits integrados.
+Na [conferência integrada](verificacao.md), a suíte completa passou com Java 17: 247 testes, sem falhas ou erros, com capturas reais da interface. A validação anterior de 246 testes e PIT de 96% está no relatório da #9 e não significa nova execução de mutação nesta atividade; o resultado da nova rodada de PIT deve ser consultado na conferência integrada.
 
 Não foram demonstrados Windows, 15 estações simultâneas, rede degradada, backup/restauração ou operação 24×7 nesta atividade. UC13–UC18, incluindo comprovantes e relatórios, continuam identificados como iteração 3.
