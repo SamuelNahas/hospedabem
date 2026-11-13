@@ -56,7 +56,21 @@ public class ReservaDAO {
                 s.quantidadeHospedes(), funcionarioId);
     }
 
+    /** Grava só a situação: usado pela conversão no check-in (UC10) e pelo cancelamento (UC09). */
     public void atualizar(Reserva r) {
         jdbc.update("UPDATE reserva SET situacao = ?, versao = versao + 1 WHERE id = ?", r.getSituacao().name(), r.getId());
+    }
+
+    /**
+     * Grava os dados alterados pelo UC09. A {@code versao} sobe em toda modificação: é por ela que o
+     * check-in detecta que a reserva mudou entre o resumo e a confirmação.
+     */
+    public void alterar(Reserva r) {
+        jdbc.update("""
+                UPDATE reserva SET hospede_responsavel_id = ?, tipo_quarto_id = ?, data_entrada_prevista = ?,
+                                   data_saida_prevista = ?, quantidade_hospedes = ?, versao = versao + 1
+                 WHERE id = ?""",
+                r.getResponsavel().id(), r.getTipo().id(), r.getPeriodo().entrada(), r.getPeriodo().saida(),
+                r.getQuantidadeHospedes(), r.getId());
     }
 }

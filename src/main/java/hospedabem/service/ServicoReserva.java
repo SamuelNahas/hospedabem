@@ -14,8 +14,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * UC08 Registrar Reserva e UC09 Consultar, Alterar e Cancelar Reserva. As regras ficam em
+ * {@link SolicitacaoReserva} e em {@link Reserva}; aqui ficam a transação, os bloqueios e o
+ * recálculo de disponibilidade, que precisam do banco.
+ */
 @Service
 public class ServicoReserva {
     private final HospedeDAO hospedeDAO;
@@ -42,15 +48,99 @@ public class ServicoReserva {
 
     @Transactional
     public Reserva registrar(int funcionarioId, String cpfResponsavel, String codigoTipo, Periodo periodo, int quantidade) {
-        TipoQuarto tipo = tipoDAO.buscarPorCodigo(codigoTipo)
-                .orElseThrow(() -> new NegocioException("Tipo de quarto não cadastrado: " + codigoTipo));
+        TipoQuarto tipo = bloquearTipos(codigoTipo, List.of());
+        Hospede responsavel = bloquearResponsavel(cpfResponsavel);
+        var solicitacao = new SolicitacaoReserva(responsavel, tipo, periodo, quantidade);
+        solicitacao.validar(LocalDate.now(relogio));
+        disponibilidade.calcular(tipo, solicitacao.periodo()).exigirVaga();
+        return reservaDAO.buscarPorCodigo(reservaDAO.inserir(solicitacao, funcionarioId)).orElseThrow();
+    }
+
+    /** UC09: localiza a reserva pelo código para a tela mostrar os dados e a situação antes de agir. */
+    @Transactional(readOnly = true)
+    public Reserva consultar(int codigo) {
+        return reservaDAO.buscarPorCodigo(codigo).orElseThrow(() -> inexistente(codigo));
+    }
+
+    /**
+     * UC09: grava os dados informados sobre {@code selecionada}, a reserva como estava quando a tela
+     * a localizou. Os bloqueios seguem a mesma ordem do check-in (UC10) — tipos de quarto primeiro,
+     * em ordem crescente de id, depois a reserva, depois os hóspedes — para que as duas operações
+     * nunca se esperem em sentidos opostos. Quando o tipo muda, os dois tipos envolvidos entram no
+     * mesmo {@code bloquear}, que ordena os ids: a origem devolve capacidade e o destino a consome,
+     * e nenhuma outra transação vê um dos dois livre enquanto esta não termina.
+     */
+    @Transactional
+    public Reserva alterar(Reserva selecionada, String cpfResponsavel, String codigoTipo, Periodo periodo,
+                           int quantidade) {
+        TipoQuarto destino = bloquearTipos(codigoTipo, List.of(selecionada.getTipo().id()));
+        Reserva gravada = exigirInalterada(selecionada, "refaça a alteração");
+        Hospede responsavel = bloquearResponsavel(cpfResponsavel);
+        Reserva alterada = gravada.alteradaPara(new SolicitacaoReserva(responsavel, destino, periodo, quantidade),
+                LocalDate.now(relogio));
+        // A própria reserva sai do recálculo: a vaga que ela já ocupa continua sendo dela.
+        disponibilidade.calcular(destino, alterada.getPeriodo(), gravada).exigirVaga();
+        reservaDAO.alterar(alterada);
+        return reservaDAO.buscarPorCodigo(alterada.getCodigo()).orElseThrow();
+    }
+
+    /**
+     * UC09: marca a reserva como CANCELADA sem apagar a linha. Não trava o tipo de quarto porque o
+     * cancelamento só devolve capacidade — nenhuma operação simultânea fica com a conta errada por
+     * ver a vaga ainda ocupada, e travar a reserva basta para não desfazer uma conversão em curso.
+     */
+    @Transactional
+    public Reserva cancelar(Reserva selecionada) {
+        Reserva gravada = exigirInalterada(selecionada, "confirme o cancelamento de novo");
+        gravada.cancelar();
+        reservaDAO.atualizar(gravada);
+        return reservaDAO.buscarPorCodigo(gravada.getCodigo()).orElseThrow();
+    }
+
+    /**
+     * Trava a linha da reserva e recusa se ela mudou — inclusive por um check-in que a converteu —
+     * depois que a tela a localizou. É o que impede perda de atualização: a gravação só continua
+     * sobre o estado que o usuário viu.
+     */
+    private Reserva exigirInalterada(Reserva selecionada, String acao) {
+        Reserva gravada = reservaDAO.buscarPorCodigoParaAtualizar(selecionada.getCodigo())
+                .orElseThrow(() -> inexistente(selecionada.getCodigo()));
+        if (!gravada.mesmoEstadoDe(selecionada))
+            throw new NegocioException("A reserva " + gravada.getCodigo() + " foi alterada por outra operação. "
+                    + "Localize-a de novo e " + acao + ".");
+        return gravada;
+    }
+
+    /**
+     * Trava o tipo {@code codigoTipo} junto com {@code outros} e só então o relê: a capacidade
+     * validada é a que vale depois da trava, não a de antes de esperar por um UC05 concorrente.
+     * Registro e alteração travam tipos antes do hóspede, na mesma ordem do check-in (UC10).
+     */
+    private TipoQuarto bloquearTipos(String codigoTipo, List<Integer> outros) {
+        int travado = buscarTipo(codigoTipo).id();
+        var ids = new ArrayList<>(outros);
+        ids.add(travado);
+        tipoDAO.bloquear(ids);
+        TipoQuarto relido = buscarTipo(codigoTipo);
+        if (relido.id() != travado)
+            throw new NegocioException("O tipo de quarto " + codigoTipo + " foi alterado por outra estação. Tente de novo.");
+        return relido;
+    }
+
+    private Hospede bloquearResponsavel(String cpfResponsavel) {
         Hospede responsavel = buscarResponsavel(cpfResponsavel);
         if (hospedeDAO.bloquear(List.of(responsavel.id())) == 0)
             throw new NegocioException("O hóspede " + responsavel.nome() + " foi excluído por outra estação.");
-        var solicitacao = new SolicitacaoReserva(responsavel, tipo, periodo, quantidade);
-        solicitacao.validar(LocalDate.now(relogio));
-        tipoDAO.bloquear(List.of(tipo.id()));
-        disponibilidade.calcular(tipo, solicitacao.periodo()).exigirVaga();
-        return reservaDAO.buscarPorCodigo(reservaDAO.inserir(solicitacao, funcionarioId)).orElseThrow();
+        return responsavel;
+    }
+
+    private TipoQuarto buscarTipo(String codigoTipo) {
+        if (codigoTipo == null || codigoTipo.isBlank()) throw new NegocioException("Selecione o tipo de quarto.");
+        return tipoDAO.buscarPorCodigo(codigoTipo)
+                .orElseThrow(() -> new NegocioException("Tipo de quarto não cadastrado: " + codigoTipo));
+    }
+
+    private static NegocioException inexistente(int codigo) {
+        return new NegocioException("Reserva não localizada: " + codigo + ".");
     }
 }

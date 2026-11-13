@@ -82,7 +82,7 @@ class CheckInIT extends IntegracaoBase {
         int futura = reservas.registrar(BEATRIZ, "STD", HOJE.plusDays(3), HOJE.plusDays(4), 1).getCodigo();
         assertThrows(NegocioException.class, () -> c.iniciarCheckIn(futura)); // entrada ainda não chegou
         int cancelada = reservas.registrar(BEATRIZ, "STD", HOJE, HOJE.plusDays(1), 1).getCodigo();
-        jdbc.update("UPDATE reserva SET situacao = 'CANCELADA' WHERE codigo = ?", cancelada);
+        reservas.cancelar(reservas.consultar(cancelada)); // cancelamento pelo fluxo real do UC09
         assertThrows(NegocioException.class, () -> c.iniciarCheckIn(cancelada));
     }
 
@@ -132,8 +132,9 @@ class CheckInIT extends IntegracaoBase {
     @Test
     void reservaAlteradaAposOResumoImpedeConfirmacao() {
         ControladorCheckIn c = ateResumo(RESERVA_CARGA, 201, CARLOS);
-        jdbc.update("UPDATE reserva SET data_saida_prevista = data_saida_prevista + 1, versao = versao + 1 WHERE codigo = ?",
-                RESERVA_CARGA); // alteração feita por outra estação (UC09)
+        // Prorrogação feita por outra estação pelo fluxo real do UC09, entre o resumo e a confirmação.
+        reservas.alterar(reservas.consultar(RESERVA_CARGA), CARLOS, "LUX", HOJE, HOJE.plusDays(4), 2);
+        assertEquals(1, contar("SELECT versao FROM reserva WHERE codigo = ?", RESERVA_CARGA));
         assertThrows(NegocioException.class, c::confirmarCheckIn);
         assertEquals(0, contar("SELECT COUNT(*) FROM hospedagem"));
         assertEquals("DISPONIVEL", situacaoQuarto(201));
@@ -142,9 +143,10 @@ class CheckInIT extends IntegracaoBase {
     @Test
     void reservaCanceladaAposOResumoImpedeConfirmacao() {
         ControladorCheckIn c = ateResumo(RESERVA_CARGA, 201, CARLOS);
-        jdbc.update("UPDATE reserva SET situacao = 'CANCELADA', versao = versao + 1 WHERE codigo = ?", RESERVA_CARGA);
+        reservas.cancelar(reservas.consultar(RESERVA_CARGA)); // cancelamento pelo fluxo real do UC09
         assertThrows(NegocioException.class, c::confirmarCheckIn);
         assertEquals(0, contar("SELECT COUNT(*) FROM hospedagem"));
+        assertEquals("CANCELADA", situacaoReserva(RESERVA_CARGA)); // a reserva cancelada é preservada
     }
 
     @Test
