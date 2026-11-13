@@ -36,15 +36,18 @@ public class ServicoReserva {
     @Transactional(readOnly = true)
     public Hospede buscarResponsavel(String cpfOuPassaporte) {
         return hospedeDAO.buscarPorDocumento(cpfOuPassaporte).orElseThrow(() -> new NegocioException(
-                "Hóspede não cadastrado: " + cpfOuPassaporte + ". O cadastro de hóspedes (UC06) será entregue na "
-                        + "iteração 2; nesta versão use os hóspedes da carga inicial."));
+                "Hóspede não cadastrado: " + cpfOuPassaporte + ". Cadastre-o em \"Hóspedes\" (UC06) e registre a "
+                        + "reserva em seguida."));
     }
 
     @Transactional
     public Reserva registrar(int funcionarioId, String cpfResponsavel, String codigoTipo, Periodo periodo, int quantidade) {
         TipoQuarto tipo = tipoDAO.buscarPorCodigo(codigoTipo)
                 .orElseThrow(() -> new NegocioException("Tipo de quarto não cadastrado: " + codigoTipo));
-        var solicitacao = new SolicitacaoReserva(buscarResponsavel(cpfResponsavel), tipo, periodo, quantidade);
+        Hospede responsavel = buscarResponsavel(cpfResponsavel);
+        if (hospedeDAO.bloquear(List.of(responsavel.id())) == 0)
+            throw new NegocioException("O hóspede " + responsavel.nome() + " foi excluído por outra estação.");
+        var solicitacao = new SolicitacaoReserva(responsavel, tipo, periodo, quantidade);
         solicitacao.validar(LocalDate.now(relogio));
         tipoDAO.bloquear(List.of(tipo.id()));
         disponibilidade.calcular(tipo, solicitacao.periodo()).exigirVaga();

@@ -6,6 +6,7 @@ import hospedabem.controller.ControladorCheckOut;
 import hospedabem.controller.ControladorConsumo;
 import hospedabem.controller.ControladorDisponibilidade;
 import hospedabem.controller.ControladorFuncionario;
+import hospedabem.controller.ControladorHospede;
 import hospedabem.controller.ControladorQuarto;
 import hospedabem.controller.ControladorReserva;
 import hospedabem.controller.ControladorTipoQuarto;
@@ -49,6 +50,7 @@ public class TelaPrincipal extends BorderPane {
         Button tipos = item("Tipos de quarto", () -> new TelaTipoQuarto(ctx.getBean(ControladorTipoQuarto.class)));
         Button quartos = item("Quartos", () -> new TelaQuarto(ctx.getBean(ControladorQuarto.class),
                 ctx.getBean(ControladorDisponibilidade.class)));
+        Button hospedes = item("Hóspedes", () -> new TelaHospede(ctx.getBean(ControladorHospede.class)));
         Button funcionarios = item("Funcionários", () -> new TelaFuncionario(ctx.getBean(ControladorFuncionario.class)));
         Button itens = item("Itens de consumo e serviços", () -> new TelaItemConsumo(ctx.getBean(ControladorItemConsumo.class)));
         if (!admin) {
@@ -73,7 +75,7 @@ public class TelaPrincipal extends BorderPane {
         });
 
         VBox barra = new VBox(marca, secaoAtendimento, disponibilidade, reserva, checkIn, consumo,
-                checkOut, secaoCadastros, tipos,
+                checkOut, secaoCadastros, hospedes, tipos,
                 quartos, itens, funcionarios, espaco, usuario, trocarSenha, sair);
         barra.getStyleClass().add("barra-lateral");
         conteudo.setFitToWidth(true);
