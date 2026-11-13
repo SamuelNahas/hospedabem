@@ -62,11 +62,16 @@ public class Reserva {
     /**
      * Devolve como a reserva fica com os dados informados, sem tocar na linha gravada: quem grava é
      * o service. A entrada só é conferida contra hoje quando muda, para que a reserva cuja entrada
-     * já chegou continue alterável nos outros campos sem poder ser remarcada para trás.
+     * já chegou continue alterável nos outros campos sem poder ser remarcada para trás. A reserva
+     * cujo período já terminou não é reaberta, e a saída nova precisa ficar depois de hoje.
      */
     public Reserva alteradaPara(SolicitacaoReserva nova, LocalDate hoje) {
         exigirAlteravel();
+        if (!hoje.isBefore(periodo.saida()))
+            throw new NegocioException("O período da reserva " + codigo + " já terminou; ela só pode ser cancelada.");
         nova.validarDados();
+        if (!hoje.isBefore(nova.periodo().saida()))
+            throw new NegocioException("A data de saída precisa ser posterior a hoje.");
         if (!nova.periodo().entrada().equals(periodo.entrada())) nova.exigirEntradaNaoPassada(hoje);
         Reserva alterada = new Reserva(id, codigo, nova.responsavel(), nova.tipo(), nova.periodo(),
                 nova.quantidadeHospedes(), situacao, funcionarioId, versao);

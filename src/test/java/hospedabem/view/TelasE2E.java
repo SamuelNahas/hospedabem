@@ -532,9 +532,16 @@ class TelasE2E {
         assertEquals("CANCELADA", consultar("SELECT situacao FROM reserva WHERE codigo = 1001"));
         assertEquals("1", consultar("SELECT COUNT(*) FROM reserva WHERE codigo = 1001")); // nada é apagado
 
-        robo.escrever("Quantidade de hóspedes", "1");
-        robo.clicar("Salvar alteração");
-        assertEquals("Reserva 1001 está cancelada e não pode mais ser alterada nem cancelada.", robo.aviso());
+        // A reserva cancelada continua à vista, mas nada mais pode ser feito com ela.
+        assertTrue(robo.exibeTexto("Reserva 1001 · CANCELADA"));
+        assertTrue(robo.desabilitado("Salvar alteração"));
+        assertTrue(robo.desabilitado("Cancelar reserva"));
+
+        // A busca que falha não deixa a reserva anterior no formulário, à mercê de um clique.
+        robo.escrever("Código da reserva", "424242");
+        robo.clicar("Localizar reserva");
+        assertEquals("", robo.conteudo("CPF/passaporte do responsável"));
+        assertTrue(robo.desabilitado("Cancelar reserva"));
 
         // A capacidade do LUX voltou à consulta de disponibilidade (UC07).
         robo.clicar("Disponibilidade");

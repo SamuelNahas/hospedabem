@@ -144,6 +144,27 @@ class DominioTest {
         assertEquals(2, gravada.getQuantidadeHospedes());
     }
 
+    /** A reserva gravada vai de D a D+2: depois disso o período terminou e ela não é reaberta. */
+    @Test
+    void reservaComPeriodoTerminadoNaoEhReabertaPelaAlteracao() {
+        Reserva gravada = reserva(0, SituacaoReserva.CONFIRMADA);
+        assertEquals("O período da reserva 1001 já terminou; ela só pode ser cancelada.",
+                assertThrows(NegocioException.class, () -> gravada.alteradaPara(
+                        solicitacao(ANA, LUXO, new Periodo(D, D.plusDays(12)), 2), D.plusDays(2))).getMessage());
+        reserva(0, SituacaoReserva.CONFIRMADA).cancelar(); // o no-show ainda é cancelável
+    }
+
+    @Test
+    void saidaNovaPrecisaFicarDepoisDeHoje() {
+        Reserva gravada = new Reserva(5, 1001, ANA, LUXO, new Periodo(D.minusDays(3), D.plusDays(2)), 2,
+                SituacaoReserva.CONFIRMADA, 1, 0);
+        assertEquals("A data de saída precisa ser posterior a hoje.", assertThrows(NegocioException.class,
+                () -> gravada.alteradaPara(solicitacao(ANA, LUXO, new Periodo(D.minusDays(3), D), 2), D)).getMessage());
+        assertThrows(NegocioException.class, () -> gravada.alteradaPara(
+                solicitacao(ANA, LUXO, new Periodo(D.minusDays(3), D.minusDays(1)), 2), D));
+        gravada.alteradaPara(solicitacao(ANA, LUXO, new Periodo(D.minusDays(3), D.plusDays(1)), 2), D); // limite
+    }
+
     @Test
     void alteracaoSemNenhumaMudancaEhRecusada() {
         Reserva gravada = reserva(0, SituacaoReserva.CONFIRMADA);

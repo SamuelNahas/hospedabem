@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -47,13 +48,10 @@ public class ServicoReserva {
 
     @Transactional
     public Reserva registrar(int funcionarioId, String cpfResponsavel, String codigoTipo, Periodo periodo, int quantidade) {
-        TipoQuarto tipo = buscarTipo(codigoTipo);
-        Hospede responsavel = buscarResponsavel(cpfResponsavel);
-        if (hospedeDAO.bloquear(List.of(responsavel.id())) == 0)
-            throw new NegocioException("O hóspede " + responsavel.nome() + " foi excluído por outra estação.");
+        TipoQuarto tipo = bloquearTipos(codigoTipo, List.of());
+        Hospede responsavel = bloquearResponsavel(cpfResponsavel);
         var solicitacao = new SolicitacaoReserva(responsavel, tipo, periodo, quantidade);
         solicitacao.validar(LocalDate.now(relogio));
-        tipoDAO.bloquear(List.of(tipo.id()));
         disponibilidade.calcular(tipo, solicitacao.periodo()).exigirVaga();
         return reservaDAO.buscarPorCodigo(reservaDAO.inserir(solicitacao, funcionarioId)).orElseThrow();
     }
@@ -75,12 +73,9 @@ public class ServicoReserva {
     @Transactional
     public Reserva alterar(Reserva selecionada, String cpfResponsavel, String codigoTipo, Periodo periodo,
                            int quantidade) {
-        TipoQuarto destino = buscarTipo(codigoTipo);
-        Hospede responsavel = buscarResponsavel(cpfResponsavel);
-        tipoDAO.bloquear(List.of(selecionada.getTipo().id(), destino.id()));
+        TipoQuarto destino = bloquearTipos(codigoTipo, List.of(selecionada.getTipo().id()));
         Reserva gravada = exigirInalterada(selecionada, "refaça a alteração");
-        if (hospedeDAO.bloquear(List.of(responsavel.id())) == 0)
-            throw new NegocioException("O hóspede " + responsavel.nome() + " foi excluído por outra estação.");
+        Hospede responsavel = bloquearResponsavel(cpfResponsavel);
         Reserva alterada = gravada.alteradaPara(new SolicitacaoReserva(responsavel, destino, periodo, quantidade),
                 LocalDate.now(relogio));
         // A própria reserva sai do recálculo: a vaga que ela já ocupa continua sendo dela.
@@ -116,7 +111,27 @@ public class ServicoReserva {
         return gravada;
     }
 
+    /**
+     * Trava o tipo {@code codigoTipo} junto com {@code outros} e só então o relê: a capacidade
+     * validada é a que vale depois da trava, não a de antes de esperar por um UC05 concorrente.
+     * Registro e alteração travam tipos antes do hóspede, na mesma ordem do check-in (UC10).
+     */
+    private TipoQuarto bloquearTipos(String codigoTipo, List<Integer> outros) {
+        var ids = new ArrayList<>(outros);
+        ids.add(buscarTipo(codigoTipo).id());
+        tipoDAO.bloquear(ids);
+        return buscarTipo(codigoTipo);
+    }
+
+    private Hospede bloquearResponsavel(String cpfResponsavel) {
+        Hospede responsavel = buscarResponsavel(cpfResponsavel);
+        if (hospedeDAO.bloquear(List.of(responsavel.id())) == 0)
+            throw new NegocioException("O hóspede " + responsavel.nome() + " foi excluído por outra estação.");
+        return responsavel;
+    }
+
     private TipoQuarto buscarTipo(String codigoTipo) {
+        if (codigoTipo == null || codigoTipo.isBlank()) throw new NegocioException("Selecione o tipo de quarto.");
         return tipoDAO.buscarPorCodigo(codigoTipo)
                 .orElseThrow(() -> new NegocioException("Tipo de quarto não cadastrado: " + codigoTipo));
     }
