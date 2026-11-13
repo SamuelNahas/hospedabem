@@ -2,6 +2,7 @@ package hospedabem.controller;
 
 import hospedabem.model.Funcionario;
 import hospedabem.model.Perfil;
+import hospedabem.model.Reserva;
 import hospedabem.model.TipoQuarto;
 import org.junit.jupiter.api.Test;
 
@@ -127,6 +128,62 @@ class ConcorrenciaIT extends IntegracaoBase {
                 () -> reservas.registrar(BEATRIZ, "MISTO", HOJE, HOJE.plusDays(1), 1))));
         assertEquals(1, contar("SELECT COUNT(*) FROM hospedagem") + contar(
                 "SELECT COUNT(*) FROM reserva WHERE tipo_quarto_id = ?", t.id()));
+    }
+
+    /**
+     * UC09 × UC10: a alteração da reserva e o check-in da mesma reserva ao mesmo tempo. Os dois
+     * bloqueiam o tipo de quarto antes da reserva, na mesma ordem, então nunca se esperam em
+     * sentidos opostos; e os dois conferem a reserva depois de travá-la, então exatamente um passa.
+     * Quem perde não grava nada pela metade: ou a reserva segue como estava, ou não há hospedagem.
+     */
+    @Test
+    void alteracaoDeReservaECheckInDaMesmaReservaNaoAcontecemAoMesmoTempo() throws Exception {
+        TipoQuarto t = criarTipo("DISP", 2);
+        for (int i = 0; i < 8; i++) criarQuarto(510 + i, t);
+        for (int rodada = 0; rodada < 5; rodada++) {
+            Reserva reserva = reservas.registrar(CARLOS, "DISP", HOJE, HOJE.plusDays(2), 1);
+            ControladorCheckIn c = checkIns.getObject();
+            c.iniciarCheckIn(reserva.getCodigo());
+            c.adicionarHospede(CARLOS);
+            c.selecionarQuarto(510 + rodada);
+            Reserva resumo = reservas.consultar(reserva.getCodigo());
+
+            int sucessos = sucessosSimultaneos(List.of(c::confirmarCheckIn,
+                    () -> reservas.alterar(resumo, CARLOS, "DISP", HOJE, HOJE.plusDays(4), 1)));
+            assertEquals(1, sucessos, "rodada " + rodada);
+            // A reserva acabou convertida (venceu o check-in) ou alterada e ainda confirmada, nunca as duas.
+            String situacao = situacaoReserva(reserva.getCodigo());
+            assertEquals(1, contar("SELECT COUNT(*) FROM reserva WHERE codigo = ? AND (situacao = 'CONVERTIDA'"
+                    + " AND data_saida_prevista = ? OR situacao = 'CONFIRMADA' AND data_saida_prevista = ?)",
+                    reserva.getCodigo(), HOJE.plusDays(2), HOJE.plusDays(4)), "rodada " + rodada + ": " + situacao);
+        }
+        assertEquals(5, contar("SELECT COUNT(*) FROM reserva WHERE tipo_quarto_id = ?", t.id()));
+    }
+
+    /**
+     * Duas reservas remarcadas ao mesmo tempo para a mesma janela com um único quarto. Sem o
+     * bloqueio do tipo de destino, cada transação recalcula a disponibilidade sem ver a outra, as
+     * duas se dão por disponíveis e o tipo fica com duas reservas para um quarto.
+     */
+    @Test
+    void duasAlteracoesNaoRemarcamParaAUltimaVagaDoTipo() throws Exception {
+        TipoQuarto t = criarTipo("REMA", 2);
+        criarQuarto(520, t);
+        // A janela da corrida é estreita: cada rodada usa um bloco de dias próprio, longe dos outros,
+        // para que as duas transações cheguem a recalcular a disponibilidade antes de qualquer commit.
+        for (int rodada = 0; rodada < 10; rodada++) {
+            int base = rodada * 100;
+            Reserva a = reservas.registrar(CARLOS, "REMA", HOJE.plusDays(base + 10), HOJE.plusDays(base + 12), 1);
+            Reserva b = reservas.registrar(BEATRIZ, "REMA", HOJE.plusDays(base + 20), HOJE.plusDays(base + 22), 1);
+
+            int sucessos = sucessosSimultaneos(List.of(
+                    () -> reservas.alterar(a, CARLOS, "REMA", HOJE.plusDays(base + 40), HOJE.plusDays(base + 43), 1),
+                    () -> reservas.alterar(b, BEATRIZ, "REMA", HOJE.plusDays(base + 41), HOJE.plusDays(base + 44), 1)));
+            assertEquals(1, sucessos, "rodada " + rodada);
+            assertEquals(1, contar("SELECT COUNT(*) FROM reserva WHERE tipo_quarto_id = ? AND situacao = 'CONFIRMADA'"
+                            + " AND data_entrada_prevista >= ? AND data_entrada_prevista < ?",
+                    t.id(), HOJE.plusDays(base + 40), HOJE.plusDays(base + 50)), "rodada " + rodada);
+        }
     }
 
     /** Simula duas estações migrando o mesmo banco e verifica que a reserva existente é preservada. */

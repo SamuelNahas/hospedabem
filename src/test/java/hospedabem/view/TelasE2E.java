@@ -485,6 +485,65 @@ class TelasE2E {
         assertEquals("1", consultar("SELECT COUNT(*) FROM hospede WHERE cpf_ou_passaporte = '52998224725'"));
     }
 
+    /**
+     * UC09 pela tela: localizar pelo código, ver a situação, alterar, desistir do cancelamento e
+     * cancelar de fato, e então constatar que a reserva cancelada não é mais alterada.
+     */
+    @Test
+    void recepcionistaAlteraECancelaReservaPelaTela() {
+        entrar("recep01", "Recep@123");
+        robo.clicar("Alterar/cancelar reserva");
+        assertTrue(robo.desabilitado("Salvar alteração"));
+        assertTrue(robo.desabilitado("Cancelar reserva"));
+
+        robo.escrever("Código da reserva", "424242");
+        robo.clicar("Localizar reserva");
+        assertEquals("Reserva não localizada: 424242.", robo.aviso());
+
+        robo.escrever("Código da reserva", "1001");
+        robo.clicar("Localizar reserva");
+        assertTrue(robo.exibeTexto("Reserva 1001 · CONFIRMADA · Carlos Teste Silva"), robo.aviso());
+        assertEquals("11111111111", robo.conteudo("CPF/passaporte do responsável"));
+        assertEquals("2", robo.conteudo("Quantidade de hóspedes"));
+        robo.capturar("reserva-localizada");
+
+        robo.escrever("Quantidade de hóspedes", "4");
+        robo.clicar("Salvar alteração");
+        assertEquals("O tipo LUX comporta 3 hóspede(s); são necessários 4.", robo.aviso());
+        assertEquals("0", consultar("SELECT versao FROM reserva WHERE codigo = 1001"));
+
+        robo.escrever("Quantidade de hóspedes", "3");
+        robo.escreverData("Saída prevista", HOJE.plusDays(5));
+        robo.clicar("Salvar alteração");
+        assertTrue(robo.aviso().startsWith("Reserva 1001 alterada"), robo.aviso());
+        robo.capturar("reserva-alterada");
+        assertEquals("3", consultar("SELECT quantidade_hospedes FROM reserva WHERE codigo = 1001"));
+        assertEquals(String.valueOf(HOJE.plusDays(5)),
+                consultar("SELECT data_saida_prevista FROM reserva WHERE codigo = 1001"));
+        assertEquals("1", consultar("SELECT versao FROM reserva WHERE codigo = 1001"));
+
+        // Desistir da confirmação não cancela nada.
+        robo.clicarEConfirmar("Cancelar reserva", ButtonType.NO);
+        assertEquals("CONFIRMADA", consultar("SELECT situacao FROM reserva WHERE codigo = 1001"));
+
+        robo.clicarEConfirmar("Cancelar reserva", ButtonType.YES);
+        assertTrue(robo.aviso().startsWith("Reserva 1001 cancelada."), robo.aviso());
+        robo.capturar("reserva-cancelada");
+        assertEquals("CANCELADA", consultar("SELECT situacao FROM reserva WHERE codigo = 1001"));
+        assertEquals("1", consultar("SELECT COUNT(*) FROM reserva WHERE codigo = 1001")); // nada é apagado
+
+        robo.escrever("Quantidade de hóspedes", "1");
+        robo.clicar("Salvar alteração");
+        assertEquals("Reserva 1001 está cancelada e não pode mais ser alterada nem cancelada.", robo.aviso());
+
+        // A capacidade do LUX voltou à consulta de disponibilidade (UC07).
+        robo.clicar("Disponibilidade");
+        robo.escreverData("Saída", HOJE.plusDays(5));
+        robo.clicar("Consultar");
+        assertTrue(robo.exibeTexto("Disponibilidade"));
+        assertEquals(3, robo.linhasDaTabela());
+    }
+
     /** Preenche o formulário do hóspede com os campos obrigatórios do UC06. */
     private void preencherHospede(String documento, String nome) {
         robo.escrever("CPF/Passaporte", documento);
