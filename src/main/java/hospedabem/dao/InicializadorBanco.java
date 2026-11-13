@@ -27,7 +27,6 @@ public class InicializadorBanco {
         if (vazio) {
             executar("db/schema.sql");
             executar("db/seed.sql");
-            if (demonstracao) executar("db/demo.sql");
         }
         executar("db/migracoes/002_itens_consumo.sql");
         executarSeFaltar("db/migracoes/003_consumo.sql", "SELECT 1 FROM information_schema.columns "
@@ -40,6 +39,7 @@ public class InicializadorBanco {
                 "SELECT 1 FROM pg_indexes WHERE indexname = 'hospedagem_hospede_hospede'");
         executarSeFaltar("db/migracoes/007_reservas.sql",
                 "SELECT 1 FROM pg_indexes WHERE indexname = 'reserva_tipo_situacao'");
+        if (vazio && demonstracao) executar("db/demo.sql");
         return vazio;
     }
 
