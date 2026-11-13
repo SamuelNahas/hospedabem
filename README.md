@@ -1,10 +1,47 @@
-# HospedaBem — Iterações 1 e 2
+<h1 align="center">🏨 HospedaBem</h1>
 
-Sistema desktop de hospedagem em hotéis. Trabalho de Análise e Projeto de Software Orientado a Objetos (FACOM/UFMS).
+<p align="center">
+  <b>Sistema desktop de gestão de hospedagem</b>: reservas, check-in, consumo e check-out para a recepção de hotéis.<br>
+  Trabalho de Análise e Projeto de Software Orientado a Objetos — FACOM/UFMS.
+</p>
+
+<p align="center">
+  <a href="https://github.com/SamuelNahas/hospedabem/actions/workflows/ci.yml"><img src="https://github.com/SamuelNahas/hospedabem/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white" alt="Java 17">
+  <img src="https://img.shields.io/badge/JavaFX-21-1F6FEB" alt="JavaFX 21">
+  <img src="https://img.shields.io/badge/Spring_Boot-3.4-6DB33F?logo=springboot&logoColor=white" alt="Spring Boot 3.4">
+  <img src="https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 17">
+  <img src="https://img.shields.io/badge/testes-207_passando-brightgreen" alt="207 testes">
+  <img src="https://img.shields.io/badge/muta%C3%A7%C3%A3o_(PIT)-96%25-brightgreen" alt="Mutação 96%">
+</p>
+
+<p align="center">
+  <img src="docs/telas/03-check-in-resumo.png" width="49%" alt="Tela de check-in">
+  <img src="docs/telas/07-disponibilidade.png" width="49%" alt="Tela de disponibilidade">
+</p>
+
+## ✨ Destaques
+
+- **Arquitetura MVC em camadas** (`view → controller → service → DAO`) com injeção de dependências do Spring Boot, sem servidor web, e padrões GRASP justificados caso a caso.
+- **Regras protegidas no banco**: bloqueio de linha (`SELECT ... FOR UPDATE`), índice único parcial e `CHECK` garantem consistência com várias recepções operando ao mesmo tempo.
+- **Transações atômicas** com `@Transactional`: um check-in ou check-out nunca fica pela metade, mesmo com falha injetada no meio da gravação.
+- **207 testes automatizados** em três níveis — unitários, integração com PostgreSQL real e E2E que operam as telas JavaFX como um usuário — e **teste de mutação (PIT) com 96%** de mutantes mortos.
+- **CI no GitHub Actions** em cada Pull Request: build, lint, testes com PostgreSQL e JavaFX headless (Xvfb) e mutação.
+
+| Tecnologia | Uso |
+|---|---|
+| Java 17 + JavaFX 21 (CSS) | Interface desktop multiplataforma |
+| Spring Boot 3.4 + Spring JDBC | Injeção de dependências, transações e DAOs com SQL explícito |
+| PostgreSQL + HikariCP | Persistência, concorrência e pool de conexões |
+| JUnit 5 + PIT + GitHub Actions | Testes, mutação e integração contínua |
 
 **Grupo N:** Felipe de Souza Rosa, Ruan Sartório Thomaz e Samuel Vieira da Cunha Nahas.
 
-Para colaborar no repositório, consulte o [tutorial básico de GitHub do grupo](docs/tutorial-github.md): assumir tarefas, usar o board, criar branches e abrir Pull Requests.
+> Para rodar: veja [Preparação](#preparação) e [Execução](#execução). Para colaborar, consulte o [tutorial básico de GitHub do grupo](docs/tutorial-github.md).
+
+---
+
+## Casos de uso
 
 A iteração 1 implementou os seis casos de uso alocados na listagem de casos de uso (atividade D). A iteração 2 começa pelo UC02:
 
