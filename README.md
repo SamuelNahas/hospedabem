@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/JavaFX-21-1F6FEB" alt="JavaFX 21">
   <img src="https://img.shields.io/badge/Spring_Boot-3.4-6DB33F?logo=springboot&logoColor=white" alt="Spring Boot 3.4">
   <img src="https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 17">
-  <img src="https://img.shields.io/badge/testes-207_passando-brightgreen" alt="207 testes">
+  <img src="https://img.shields.io/badge/testes-246_registrados-brightgreen" alt="246 testes registrados">
   <img src="https://img.shields.io/badge/muta%C3%A7%C3%A3o_(PIT)-96%25-brightgreen" alt="Mutação 96%">
 </p>
 
@@ -25,7 +25,7 @@
 - **Arquitetura MVC em camadas** (`view → controller → service → DAO`) com injeção de dependências do Spring Boot, sem servidor web, e padrões GRASP justificados caso a caso.
 - **Regras protegidas no banco**: bloqueio de linha (`SELECT ... FOR UPDATE`), índice único parcial e `CHECK` garantem consistência com várias recepções operando ao mesmo tempo.
 - **Transações atômicas** com `@Transactional`: um check-in ou check-out nunca fica pela metade, mesmo com falha injetada no meio da gravação.
-- **207 testes automatizados** em três níveis — unitários, integração com PostgreSQL real e E2E que operam as telas JavaFX como um usuário — e **teste de mutação (PIT) com 96%** de mutantes mortos.
+- **246 testes automatizados registrados na validação da #9** em três níveis — unitários, integração com PostgreSQL real e E2E que operam as telas JavaFX como um usuário — e **teste de mutação (PIT) com 96%** de mutantes mortos.
 - **CI no GitHub Actions** em cada Pull Request: build, lint, testes com PostgreSQL e JavaFX headless (Xvfb) e mutação.
 
 | Tecnologia | Uso |
@@ -43,7 +43,7 @@
 
 ## Casos de uso
 
-A iteração 1 implementou os seis casos de uso alocados na listagem de casos de uso (atividade D). A iteração 2 começa pelo UC02:
+A iteração 1 entregou UC01, UC03, UC04, UC07, UC08 e UC10. A iteração 2 acrescenta UC02, UC05, UC06, UC09, UC11 e UC12, além da troca periódica de senha (RNF-8), conforme a atividade D, seções 3–4:
 
 | UC | Caso de uso | Perfis | Iteração |
 |----|-------------|--------|----------|
@@ -51,13 +51,16 @@ A iteração 1 implementou os seis casos de uso alocados na listagem de casos de
 | UC02 | Gerenciar Funcionário | administrador | 2 |
 | UC03 | Gerenciar Tipo de Quarto | administrador | 1 |
 | UC04 | Gerenciar Quarto | administrador | 1 |
+| UC05 | Gerenciar Item de Consumo/Serviço | administrador | 2 |
 | UC06 | Gerenciar Hóspede | administrador, recepcionista | 2 |
 | UC07 | Consultar Disponibilidade de Quartos | administrador, recepcionista | 1 |
 | UC08 | Registrar Reserva | administrador, recepcionista | 1 |
 | UC09 | Consultar, Alterar e Cancelar Reserva | administrador, recepcionista | 2 |
 | UC10 | Realizar Check-in, com e sem reserva | administrador, recepcionista | 1 |
+| UC11 | Lançar Consumo | administrador, recepcionista | 2 |
+| UC12 | Realizar Check-out | administrador, recepcionista | 2 |
 
-Na iteração 2 também foram entregues o cadastro de hóspedes (UC06), a alteração e o cancelamento de reservas (UC09), o lançamento de consumo (UC11), o check-out com pagamento (UC12) e a troca periódica de senha (RNF-8). Ficam para as próximas iterações: comprovantes/extrato impresso (UC14) e relatórios. O menu só mostra o que foi implementado.
+O cadastro de hóspedes e todas as operações de atendimento são permitidos aos dois perfis; funcionários, tipos, quartos e catálogo são exclusivos do administrador. As permissões são verificadas nos controladores, além dos botões desabilitados. Trocar a própria senha é permitido aos dois perfis. Comprovante de reserva (UC13), extrato impresso (UC14) e relatórios (UC15–UC18) pertencem à **iteração 3**; o resumo de conta na tela de check-out não implementa impressão de extrato.
 
 ## Iteração 2 — UC09: consultar, alterar e cancelar reserva
 
@@ -108,7 +111,7 @@ Decisão da equipe para o RF-11: preço **maior que zero**, até R$ 99.999.999,9
 
 Na inicialização, `db/migracoes/002_itens_consumo.sql` é aplicado tanto a bancos novos quanto aos da iteração 1, sem apagar ou recarregar dados existentes. Para preparação manual, execute esse arquivo depois do esquema base. O script é idempotente e a inicialização é transacional, com bloqueio no PostgreSQL para serializar atualizações simultâneas entre estações.
 
-A tabela `consumo` prepara a integração com o UC11: cada lançamento referencia uma conta e um item e preserva o preço unitário aplicado. Alterar o preço do catálogo não recalcula lançamentos antigos; excluir um item referenciado é recusado. **A tela e a operação de lançar consumo pertencem ao UC11 e ainda não estão implementadas.** Os testes criam lançamentos fictícios diretamente no PostgreSQL para verificar essa proteção.
+O UC11 entregue usa a tabela `consumo`: cada lançamento referencia uma conta e um item e preserva o preço unitário aplicado. Alterar o preço do catálogo não recalcula lançamentos antigos; excluir um item referenciado é recusado. A operação está disponível em **Atendimento → Lançar consumo**, com cobertura em `ConsumoIT` e `TelasE2E.recepcionistaLancaConsumoEConcluiCheckOutPelasTelas`.
 
 O UC05 segue as mesmas camadas dos demais cadastros: `ItemConsumo`, `ItemConsumoDAO`, `ServicoItemConsumo`, `ControladorItemConsumo` e `TelaItemConsumo`. Os testes focados podem ser executados com `mvn test -Dtest=ItemConsumoIT` e `mvn test -Dtest='TelasE2E#administradorGerenciaItensDeConsumoPelaTela'`; ambos usam exclusivamente `hospedabem_test`.
 
@@ -118,7 +121,7 @@ O UC05 segue as mesmas camadas dos demais cadastros: `ItemConsumo`, `ItemConsumo
 
 A migração `db/migracoes/003_consumo.sql` (sem apagar dados) acrescenta a `consumo`: `valor_total` como coluna gerada pelo banco (`preco_unitario * quantidade`, `NUMERIC(13,2)`, que comporta o maior lançamento aceito), o limite de 999 na quantidade, `funcionario_id` e o código e a descrição do item cobrados, preenchidos para lançamentos antigos. Como `ALTER TABLE` trava a tabela inteira, o `InicializadorBanco` só executa o script enquanto `valor_total` ainda não é coluna gerada; reiniciar uma estação não bloqueia os lançamentos das outras. O lançamento trava só as linhas da hospedagem e da conta (`SELECT ... FOR UPDATE OF h, c`), a mesma trava usada pelo check-out (UC12), e não relê o quarto nem os lançamentos anteriores.
 
-Testes: `mvn test -Dtest='ConsumoIT,ConsumoDominioTest'` e `TelasE2E#recepcionistaLancaConsumoPelaTela`.
+Testes: `mvn test -Dtest='ConsumoIT,ConsumoDominioTest'` e `TelasE2E#recepcionistaLancaConsumoEConcluiCheckOutPelasTelas`.
 
 ## Iteração 2 — UC12: realizar check-out
 
@@ -138,9 +141,21 @@ Testes: `mvn test -Dtest='CheckOutIT,CheckOutDominioTest'` e `TelasE2E#recepcion
 
 **Política (decisão da equipe, `PoliticaDeSenha`):** ao menos 8 caracteres, com letra e número; validade de **90 dias** a partir de `senha_alterada_em` (vence exatamente ao completar o prazo); a nova senha deve ser confirmada e diferente da atual. Senha definida pelo administrador no cadastro ou na redefinição é **provisória** e deve ser trocada no primeiro acesso.
 
-Com a senha vencida, o login leva direto à tela **Trocar senha**, que também tem **Sair**; até a troca, todos os controladores recusam operações (inclusive chamadas diretas), exceto a própria troca. O vencimento é conferido a cada operação, então uma senha que completa 90 dias com a sessão aberta também passa a bloquear. A redefinição pelo administrador vale a partir do próximo login do funcionário: uma sessão já aberta em outra estação não é encerrada (o sistema não revoga sessões). Espaços não contam no mínimo de 8 caracteres. A troca também está no menu lateral. Só o hash PBKDF2 é gravado. A migração `db/migracoes/005_senha.sql` acrescenta `funcionario.senha_provisoria`. Em bancos existentes, contas cuja `senha_alterada_em` tem mais de 90 dias serão obrigadas a trocar a senha no próximo login.
+Com a senha vencida, o login leva direto à tela **Trocar senha**, que também tem **Sair**; até a troca, todos os controladores recusam operações (inclusive chamadas diretas), exceto a própria troca. O vencimento é conferido a cada operação, então uma senha que completa 90 dias com a sessão aberta também passa a bloquear. A redefinição pelo administrador vale a partir do próximo login do funcionário: uma sessão já aberta em outra estação não é encerrada (o sistema não revoga sessões). Espaços não contam no mínimo de 8 caracteres. A troca também está no menu lateral. Só o hash PBKDF2 é gravado. A migração `db/migracoes/005_senha.sql` acrescenta `funcionario.senha_provisoria`. Em bancos existentes, contas cuja `senha_alterada_em` completou 90 dias serão obrigadas a trocar a senha no próximo login.
 
 Testes: `mvn test -Dtest='TrocaSenhaIT,PoliticaDeSenhaTest'`.
+
+## Decisões da equipe para a iteração 2
+
+Os documentos exigem consolidar diárias e consumos, confirmar pagamento e renovar senhas; não fixam os detalhes abaixo. Estas são **decisões da equipe**, implementadas e testadas, e não novos requisitos atribuídos à professora:
+
+| Tema | Exigência documental | Decisão adotada e evidência |
+|---|---|---|
+| Diárias e atraso | RF-20: consolidar diárias e consumos; RF-22/23: pagamento confirmado e liberação do quarto | Noites de calendário efetivamente usadas, mínimo 1, sem multa nem adicional por horário; saída antecipada não cobra noites futuras. `RegraDiarias`, `CheckOutDominioTest`, `CheckOutIT`. |
+| Validade do preço | RF-9/11: valor da diária/preço; RF-19/20: consumo e total da conta | A diária é preservada na conta no check-in, sem preço garantido pela reserva. Cada consumo usa o catálogo relido na gravação e preserva código, descrição e preço aplicados; mudanças posteriores não recalculam lançamentos. Não há vencimento temporal do preço nem tabela de tarifas por período. `Hospedagem.setQuarto`, `ServicoConsumo.lancar`, `ConsumoIT.precoHistoricoEhPreservadoQuandoOCatalogoMuda`. |
+| Renovação da senha | RNF-8: segurança e troca periódica; RNF-7: proteção da senha armazenada | 90 dias, mínimo 8 caracteres sem espaços, letra e número, confirmação e senha diferente da atual; senha definida pelo administrador é provisória. Hash PBKDF2; bloqueio até renovar. `PoliticaDeSenha`, `PoliticaDeSenhaTest`, `TrocaSenhaIT`. |
+
+Uma mudança nessas políticas deve alterar domínio, testes e documentação juntos. O sistema registra a confirmação de pagamento pelo funcionário; não integra adquirente, banco ou gateway.
 
 ## Tecnologia e organização (MVC)
 
@@ -198,7 +213,7 @@ As regras de negócio ficam no `model` e são testadas sem banco:
 | Dados da nova reserva | `SolicitacaoReserva.validar` |
 | Reserva alterável ou cancelável, cancelamento e dados da alteração (UC09) | `Reserva.exigirAlteravel`, `Reserva.cancelar`, `Reserva.alteradaPara` |
 | Campos do funcionário (formato e tamanho), dígitos verificadores do CPF, autoexclusão e rebaixamento do próprio perfil | `Funcionario` |
-| Composição mínima da senha | `PoliticaDeSenha` |
+| Composição, validade e renovação da senha | `PoliticaDeSenha` |
 | Período `[entrada, saída)` e pico de ocupação | `Periodo`, `Ocupacao.pico` |
 | Vaga no tipo | `Disponibilidade.exigirVaga` |
 | Check-in: participantes, quarto escolhido, reserva inalterada e contrato de `confirmarCheckIn()` | `Atendimento` |
@@ -242,12 +257,21 @@ CREATE DATABASE hospedabem OWNER hospedabem;
 CREATE DATABASE hospedabem_test OWNER hospedabem;
 ```
 
-Na primeira execução, a aplicação cria o esquema (`src/main/resources/db/schema.sql`) e a carga fictícia (`db/seed.sql`), mas só quando o banco ainda não tem as tabelas. Ela nunca apaga dados. Para preparar o banco manualmente:
+Na primeira execução, a aplicação cria o esquema (`src/main/resources/db/schema.sql`) e a carga fictícia (`db/seed.sql`), mas só quando o banco ainda não tem as tabelas. Em seguida aplica `db/migracoes/002_itens_consumo.sql` a `007_reservas.sql`, tanto na instalação nova quanto na atualização. O bloqueio transacional serializa a inicialização de estações. Ela nunca apaga dados. Os comandos abaixo criam apenas o esquema base e a carga; a primeira abertura do aplicativo completa as migrações:
 
 ```bash
 psql -U hospedabem -d hospedabem -f src/main/resources/db/schema.sql
 psql -U hospedabem -d hospedabem -f src/main/resources/db/seed.sql
 ```
+
+### Atualizar uma instalação da iteração 1
+
+1. Combine a parada das estações e faça um backup do banco existente: `pg_dump -Fc -h SERVIDOR -U hospedabem -d hospedabem -f hospedabem-antes-iteracao2.dump`.
+2. Compile o novo JAR no sistema de destino e mantenha `HB_DB_URL`, usuário e senha apontando para o mesmo banco. O usuário do banco precisa poder criar tabelas/índices e alterar as tabelas existentes.
+3. Inicie uma estação com `java -jar target/hospedabem.jar`. O `InicializadorBanco` preserva as linhas da iteração 1 e aplica as migrações pendentes em transação. Não execute `DROP SCHEMA`, `schema.sql`, `seed.sql` ou a carga de demonstração sobre o banco existente.
+4. Confira login, reservas e hospedagens antigas; só então inicie as demais estações. Funcionários cuja senha completou 90 dias devem trocá-la no primeiro acesso. Avise a recepção antes da atualização.
+
+A atualização e a equivalência da estrutura com uma instalação nova têm cobertura em `MigracaoIteracaoUmIT`. O backup é uma orientação operacional; restauração e rollback de versão não foram validados nesta entrega.
 
 ### 3. Configuração (variáveis de ambiente)
 
@@ -268,7 +292,7 @@ java -jar target/hospedabem.jar --hb.demo=true   # primeira execução, com o ba
 java -jar target/hospedabem.jar                  # execuções seguintes
 ```
 
-A opção `--hb.demo=true` só tem efeito quando o banco está vazio. Ela executa `db/demo.sql` depois de `db/seed.sql`, com mais hóspedes, o tipo EXE, os quartos 302 e 501 a 503, reservas futuras, canceladas e convertidas e duas hospedagens ativas. Os testes não usam essa carga. Para recomeçar do zero: `docker exec hospedabem-pg psql -U hospedabem -d hospedabem -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"` (apaga os dados do banco de uso).
+A opção `--hb.demo=true` só tem efeito quando o banco está vazio. Ela executa `db/demo.sql` depois de `db/seed.sql`, preparando reservas confirmadas/canceladas/convertidas, hospedagens ativas, consumo com pagamento pendente e check-out concluído. Os testes normais não usam essa carga. O [roteiro de demonstração](docs/iteracao-2/demonstracao.md) identifica os registros e o resultado esperado de cada operação. Para repetir a demonstração, use outro banco vazio; mantenha o banco real intacto.
 
 ### Credenciais de demonstração (DADOS FICTÍCIOS DE TESTE)
 
@@ -368,7 +392,9 @@ O JAR gerado inclui os componentes nativos do JavaFX para **Linux**; para Window
 
 O resultado aparece no PR. Para tornar sua aprovação obrigatória antes do merge, configure uma regra de proteção da `main` exigindo **Lint**, **Build e testes** e **Mutação (PIT)**.
 
-## Verificação: casos de uso × telas × testes
+## Verificação: casos de uso × requisitos × telas × testes
+
+A [matriz de rastreabilidade](docs/matriz-iteracao-2.md) relaciona cada UC aos RFs/RNFs das atividades C/D, às telas e aos testes existentes. A tabela abaixo detalha os cenários; citar um teste demonstra cobertura no código, não uma nova execução. Os resultados da rodada da #9 estão em [Validação da iteração 2](docs/validacao-iteracao-2.md).
 
 | UC | Tela | Controlador | Testes |
 |---|---|---|---|
@@ -382,6 +408,9 @@ O resultado aparece no PR. Para tornar sua aprovação obrigatória antes do mer
 | UC08 | `TelaReserva` | `ControladorReserva` | `TelasE2E`, `ReservaIT` (válida com funcionário da sessão, capacidade, indisponibilidade, responsável/tipo/período inválidos); `ConcorrenciaIT` (última vaga) |
 | UC09 | `TelaAlteracaoReserva` (localizar pelo código, dados e situação, alteração e cancelamento com confirmação) | `ControladorReserva`, `ServicoReserva` | `DominioTest` (convertida e cancelada não alteráveis nem canceláveis, cancelamento preservando os dados, alteração devolvida sem mudar a gravada, alteração sem mudança, capacidade no limite exato, entrada mantida no passado × remarcada para trás); `ReservaIT` (consulta com dados e situação, código inexistente, alteração de responsável/tipo/datas/quantidade com `versao` incrementada, própria vaga mantida em tipo com um só quarto, mudança de tipo consumindo o destino e devolvendo a origem, indisponibilidade no destino e no período novo sem gravar, cancelamento persistido com registro preservado e capacidade devolvida, convertida e já cancelada recusadas, reserva desatualizada recusada na alteração e no cancelamento, responsável/tipo/período/quantidade inválidos, responsável excluído por outra estação, os dois perfis e sem sessão); `ConcorrenciaIT` (alteração × check-in da mesma reserva em 5 rodadas, duas remarcações para a última vaga); `CheckInIT` (alteração e cancelamento reais entre o resumo e a confirmação); `TelasE2E` (localizar, recusa de capacidade, alteração, desistência e confirmação do cancelamento, cancelada não alterável, capacidade de volta na disponibilidade) |
 | UC10 | `TelaCheckIn` (4 etapas em cartões, a última com a confirmação) | `ControladorCheckIn` | `TelasE2E` (com e sem reserva, pela tela); `DominioTest`; `CheckInIT` (etapas fora de ordem, reserva ou quarto apagados, pós-condições do contrato, sem reserva, reserva inexistente/convertida/cancelada/futura, hóspede inexistente/duplicado/excesso, responsável ausente, sem quarto, reserva alterada ou cancelada após o resumo, quarto ocupado ou em manutenção após o resumo, falha na gravação sem resultado parcial, unicidade no banco); `ConcorrenciaIT` (mesmo quarto, check-in × reserva); `PersistenciaIT` (reinício) |
+| UC11 | `TelaConsumo` | `ControladorConsumo`, `ServicoConsumo` | `ConsumoDominioTest`, `ConsumoIT` (quantidade, preço histórico, autorização, total persistido e rollback); `TelasE2E.recepcionistaLancaConsumoEConcluiCheckOutPelasTelas` |
+| UC12 | `TelaCheckOut` | `ControladorCheckOut`, `ServicoCheckOut` | `CheckOutDominioTest`, `CheckOutIT` (diárias, quatro formas de pagamento, recusa de confirmação, total alterado, concorrência e rollback); `PersistenciaIT.checkOutSobreviveAoReinicio`; `TelasE2E.recepcionistaLancaConsumoEConcluiCheckOutPelasTelas` |
+| RNF-8 | `TelaTrocaSenha` | `ControladorAutenticacao`, `Sessao` | `PoliticaDeSenhaTest`, `TrocaSenhaIT` (senha provisória/vencida, composição, confirmação, hash, renovação e bloqueio); `TelasE2E.administradorCadastraFuncionarioDelegaPerfilEORecemCadastradoEntraNoSistema` |
 
 ## Decisões de implementação e divergências dos artefatos
 
@@ -454,15 +483,15 @@ O resultado aparece no PR. Para tornar sua aprovação obrigatória antes do mer
 
 ## Próximas iterações
 
-O Processo Unificado é iterativo: cada iteração entrega um conjunto de casos de uso completo, da análise ao código testado. Ficam para as próximas iterações, conforme a listagem de casos de uso:
-
-- RNF-8: troca de senha pelo próprio funcionário e exigência de renovação periódica. O UC02 já entregou a definição e a redefinição da senha, a coluna `senha_alterada_em` atualizada a cada troca e a `PoliticaDeSenha`; falta definir o prazo de validade e bloquear as operações até a renovação.
-- UC05, UC09, UC11 e UC12, conforme a listagem de casos de uso.
+A atividade D aloca na **iteração 3**: UC13 (comprovante de reserva), UC14 (extrato impresso da conta), UC15 (relatório de ocupação), UC16 (relatório de reservas), UC17 (hospedagens por hóspede) e UC18 (faturamento). Esses comprovantes e relatórios não estão implementados. UC01–UC12 e RNF-8 já fazem parte da entrega atual.
 
 ## Entrega em ZIP
 
-`GrupoN_Iteracao1.zip` contém **somente** a pasta `src/`. Instruções para quem recebe só o ZIP estão em [src/LEIA-ME.md](src/LEIA-ME.md). Para gerar o ZIP:
+`GrupoN_Iteracao1.zip` é o registro histórico da primeira entrega. O pacote atual é `target/GrupoN_Iteracao2.zip`, com **somente** a pasta `src/`, incluindo as instruções [src/LEIA-ME.md](src/LEIA-ME.md) e as cópias do build e da documentação em `src/entrega/`. Gere-o com:
 
 ```bash
-rm -f GrupoN_Iteracao1.zip && zip -r -X GrupoN_Iteracao1.zip src -x '*.DS_Store' && unzip -l GrupoN_Iteracao1.zip
+sh scripts/empacotar-iteracao-2.sh
+unzip -l target/GrupoN_Iteracao2.zip
 ```
+
+O [guia da entrega](docs/iteracao-2/entrega.md) registra o formato, a conferência do pacote e a demonstração. Os artefatos de análise/projeto atualizados ficam em [docs/iteracao-2](docs/iteracao-2/).
