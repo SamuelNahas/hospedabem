@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/JavaFX-21-1F6FEB" alt="JavaFX 21">
   <img src="https://img.shields.io/badge/Spring_Boot-3.4-6DB33F?logo=springboot&logoColor=white" alt="Spring Boot 3.4">
   <img src="https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 17">
-  <img src="https://img.shields.io/badge/testes-246_registrados-brightgreen" alt="246 testes registrados">
+  <img src="https://img.shields.io/badge/testes-247_previstos-brightgreen" alt="247 testes previstos na suíte">
   <img src="https://img.shields.io/badge/muta%C3%A7%C3%A3o_(PIT)-96%25-brightgreen" alt="Mutação 96%">
 </p>
 
@@ -25,7 +25,7 @@
 - **Arquitetura MVC em camadas** (`view → controller → service → DAO`) com injeção de dependências do Spring Boot, sem servidor web, e padrões GRASP justificados caso a caso.
 - **Regras protegidas no banco**: bloqueio de linha (`SELECT ... FOR UPDATE`), índice único parcial e `CHECK` garantem consistência com várias recepções operando ao mesmo tempo.
 - **Transações atômicas** com `@Transactional`: um check-in ou check-out nunca fica pela metade, mesmo com falha injetada no meio da gravação.
-- **246 testes automatizados registrados na validação da #9** em três níveis — unitários, integração com PostgreSQL real e E2E que operam as telas JavaFX como um usuário — e **teste de mutação (PIT) com 96%** de mutantes mortos.
+- **247 testes automatizados previstos na suíte atual** (a rodada da #9 registrou 246 aprovados) em três níveis — unitários, integração com PostgreSQL real e E2E que operam as telas JavaFX como um usuário — e **teste de mutação (PIT) com 96%** de mutantes mortos.
 - **CI no GitHub Actions** em cada Pull Request: build, lint, testes com PostgreSQL e JavaFX headless (Xvfb) e mutação.
 
 | Tecnologia | Uso |
@@ -305,17 +305,17 @@ Hóspedes fictícios da carga: `11111111111` (Carlos), `22222222222` (Beatriz), 
 
 ## Testes
 
-Há quatro níveis de teste. Todos rodam com `mvn test`, exceto a mutação, que tem comando próprio.
+Há quatro níveis de teste. Todos rodam com `mvn test`, exceto a mutação, que tem comando próprio. A contagem atual inclui `DemonstracaoIT`, acrescentado na #10; ela descreve a suíte, enquanto a tabela de rodadas abaixo registra somente execuções realizadas.
 
 | Nível | Arquivos | O que cobre | Banco |
 |---|---|---|---|
 | Unitário | `*Test` (89 testes) | Todas as regras do `model` (`Atendimento`, `Quarto`, `Reserva`, `SolicitacaoReserva`, `TipoQuarto`, `Periodo`, `Ocupacao`, `Disponibilidade`, `Funcionario`, `PoliticaDeSenha`), `Sessao`, hash de senha, tradução de duplicidade simultânea, mensagens de erro, conversão de campos | não usa |
-| Integração | `*IT` (145 testes) | Controladores + services + DAOs + PostgreSQL: regras dos UCs entregues, transação do check-in, falha injetada na gravação, concorrência entre conexões, reinício, atualização do banco da iteração 1 e aferição dos limites RNF-1/RNF-2 | `hospedabem_test` |
+| Integração | `*IT` (146 testes) | Controladores + services + DAOs + PostgreSQL: regras dos UCs entregues, transação do check-in, falha injetada na gravação, concorrência entre conexões, reinício, atualização do banco da iteração 1 e aferição dos limites RNF-1/RNF-2 | `hospedabem_test` |
 | Ponta a ponta (E2E) | `TelasE2E` (12 testes) | Telas JavaFX reais operadas como um usuário (`RoboFx`): ciclo completo da iteração 2 numa única execução, login, permissões, cadastros, funcionários, hóspedes, disponibilidade, reserva, alteração e cancelamento de reserva, check-in com e sem reserva, consumo e check-out. Confere a tela e o banco. | `hospedabem_test` |
 | Mutação | PIT (`pitest-maven`) | Altera o código de `model`, `controller` e `service` e verifica se algum teste falha | `hospedabem_test` |
 
 ```bash
-mvn test                      # unitários + integração + E2E (246 testes)
+mvn test                      # unitários + integração + E2E (247 testes previstos)
 mvn test -Dtest='*Test'       # somente unitários, sem banco
 mvn test -Dtest='TelasE2E' -Dhb.e2e.capturas=docs/telas   # E2E salvando a captura de cada passo
 mvn test-compile org.pitest:pitest-maven:mutationCoverage  # mutação; relatório em target/pit-reports/index.html
