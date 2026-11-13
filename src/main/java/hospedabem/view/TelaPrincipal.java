@@ -42,6 +42,9 @@ public class TelaPrincipal extends BorderPane {
         Button disponibilidade = item("Disponibilidade", () -> new TelaDisponibilidade(ctx.getBean(ControladorDisponibilidade.class)));
         Button reserva = item("Registrar reserva", () -> new TelaReserva(ctx.getBean(ControladorReserva.class),
                 ctx.getBean(ControladorDisponibilidade.class)));
+        Button alterarReserva = item("Alterar/cancelar reserva",
+                () -> new TelaAlteracaoReserva(ctx.getBean(ControladorReserva.class),
+                        ctx.getBean(ControladorDisponibilidade.class)));
         Button checkIn = item("Check-in", () -> new TelaCheckIn(ctx.getBean(ControladorCheckIn.class),
                 ctx.getBean(ControladorDisponibilidade.class)));
         Button consumo = item("Lançar consumo", () -> new TelaConsumo(ctx.getBean(ControladorConsumo.class)));
@@ -74,7 +77,7 @@ public class TelaPrincipal extends BorderPane {
             getScene().setRoot(new TelaLogin(ctx));
         });
 
-        VBox barra = new VBox(marca, secaoAtendimento, disponibilidade, reserva, checkIn, consumo,
+        VBox barra = new VBox(marca, secaoAtendimento, disponibilidade, reserva, alterarReserva, checkIn, consumo,
                 checkOut, secaoCadastros, hospedes, tipos,
                 quartos, itens, funcionarios, espaco, usuario, trocarSenha, sair);
         barra.getStyleClass().add("barra-lateral");

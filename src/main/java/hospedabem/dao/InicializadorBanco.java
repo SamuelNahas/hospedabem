@@ -38,6 +38,8 @@ public class InicializadorBanco {
                 + "WHERE table_name = 'funcionario' AND column_name = 'senha_provisoria'");
         executarSeFaltar("db/migracoes/006_hospedes.sql",
                 "SELECT 1 FROM pg_indexes WHERE indexname = 'hospedagem_hospede_hospede'");
+        executarSeFaltar("db/migracoes/007_reservas.sql",
+                "SELECT 1 FROM pg_indexes WHERE indexname = 'reserva_tipo_situacao'");
         return vazio;
     }
 
