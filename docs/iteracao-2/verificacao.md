@@ -19,17 +19,33 @@ docker run --rm -v "$PWD:/repo:ro" --workdir /repo rhysd/actionlint:1.7.12 -colo
 |---|---|
 | Checkstyle | Sem violações, executado na fase `validate` |
 | Suíte integrada | **247 testes: 89 unitários, 146 de integração e 12 E2E; 0 falhas, erros ou ignorados** |
+| Mutação PIT | **541 mutantes, 517 mortos (96%); mínimo de 95% atingido** |
 | actionlint | Aprovado, imagem 1.7.12 |
 | ZIP extraído em pasta limpa | 89 testes unitários aprovados e JAR gerado com o POM/configuração incluídos |
+| JAR extraído executado e reiniciado | Banco novo carregado; 3 hospedagens, 2 consumos e 1 pagamento mantidos no reinício |
 | Mermaid | Cinco diagramas passaram no parser |
 
 A suíte completa levou 2 minutos neste ambiente; os E2E operaram janelas JavaFX reais do macOS. A carga de demonstração tem um teste novo, `DemonstracaoIT`, que verifica consumo pendente, pagamento concluído, liberação do quarto e ausência de recarga no reinício. A validação anterior tinha 246 testes.
 
+A mutação levou 11 minutos e 20 segundos, com cobertura das classes mutadas de 1010/1045 linhas (97%). Restaram 17 sobreviventes e 7 sem cobertura, as limitações já registradas no README e na rodada da #9; não são apresentados como eliminados nesta entrega.
+
 ## Revisão e sondas
 
-Comparação: `git diff e354fcf...docs/entrega-iteracao-2`. A revisão teve dois eixos independentes: **Standards**, sem violações documentadas ou heurísticas relevantes; **Spec**, com um achado confirmado ao rodar.
+Comparação: `git diff e354fcf...docs/entrega-iteracao-2`. A revisão teve dois eixos independentes.
 
-Uma sonda gerou/extraiu o ZIP e conferiu links locais: o README copiado para `src/entrega/` apontava para `src/LEIA-ME.md` e `.github/workflows/ci.yml` inexistentes nessa localização; comandos também dependiam de arquivos ausentes. A correção e sua nova conferência são registradas no pacote final. Nenhuma sonda entra no código entregue.
+### Standards
+
+Sem violações documentadas ou heurísticas relevantes. A mudança preserva MVC/DAO, transações e inicialização da carga somente em banco vazio; `git diff --check` passou.
+
+### Spec
+
+Um achado confirmado ao rodar: os links e comandos inválidos no pacote descritos abaixo. Os demais critérios estão representados, com a limitação documental do formato da atividade K explícita.
+
+Uma sonda gerou/extraiu o ZIP e conferiu links locais: o README copiado para `src/entrega/` apontava para `src/LEIA-ME.md` e `.github/workflows/ci.yml` inexistentes nessa localização; comandos também dependiam de arquivos ausentes. A correção adapta somente as cópias no pacote: referencia o LEIA-ME correto, encaminha os links de CI/templates ao GitHub e identifica os comandos exclusivos do repositório. A sonda final percorreu todos os Markdown extraídos: **36 links locais conferidos, nenhum destino ausente**. Nenhuma sonda entra no código entregue.
+
+Uma segunda conferência executou o JAR reconstruído do ZIP com `--hb.demo=true` em banco de demonstração descartável separado do banco da suíte. A consulta confirmou hospedagens 9001/9002 ativas com contas abertas e 9003 encerrada com conta fechada e pagamento PIX de R$ 531,00. Ao encerrar e executar novamente com a mesma opção, permaneceram 3 hospedagens, 2 consumos e 1 pagamento: a carga não foi duplicada.
+
+Resultado da revisão: **Standards 0 achados; Spec 1 achado, corrigido e reconferido ao rodar**.
 
 ## Capturas atuais da execução
 

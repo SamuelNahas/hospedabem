@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/JavaFX-21-1F6FEB" alt="JavaFX 21">
   <img src="https://img.shields.io/badge/Spring_Boot-3.4-6DB33F?logo=springboot&logoColor=white" alt="Spring Boot 3.4">
   <img src="https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 17">
-  <img src="https://img.shields.io/badge/testes-247_previstos-brightgreen" alt="247 testes previstos na suíte">
+  <img src="https://img.shields.io/badge/testes-247_aprovados-brightgreen" alt="247 testes aprovados na suíte local">
   <img src="https://img.shields.io/badge/muta%C3%A7%C3%A3o_(PIT)-96%25-brightgreen" alt="Mutação 96%">
 </p>
 
@@ -25,7 +25,7 @@
 - **Arquitetura MVC em camadas** (`view → controller → service → DAO`) com injeção de dependências do Spring Boot, sem servidor web, e padrões GRASP justificados caso a caso.
 - **Regras protegidas no banco**: bloqueio de linha (`SELECT ... FOR UPDATE`), índice único parcial e `CHECK` garantem consistência com várias recepções operando ao mesmo tempo.
 - **Transações atômicas** com `@Transactional`: um check-in ou check-out nunca fica pela metade, mesmo com falha injetada no meio da gravação.
-- **247 testes automatizados previstos na suíte atual** (a rodada da #9 registrou 246 aprovados) em três níveis — unitários, integração com PostgreSQL real e E2E que operam as telas JavaFX como um usuário — e **teste de mutação (PIT) com 96%** de mutantes mortos.
+- **247 testes automatizados aprovados na entrega da #10** em três níveis — unitários, integração com PostgreSQL real e E2E que operam as telas JavaFX como um usuário — e **teste de mutação (PIT) com 96%** de mutantes mortos. A [conferência da entrega](docs/iteracao-2/verificacao.md) distingue as execuções.
 - **CI no GitHub Actions** em cada Pull Request: build, lint, testes com PostgreSQL e JavaFX headless (Xvfb) e mutação.
 
 | Tecnologia | Uso |
@@ -315,7 +315,7 @@ Há quatro níveis de teste. Todos rodam com `mvn test`, exceto a mutação, que
 | Mutação | PIT (`pitest-maven`) | Altera o código de `model`, `controller` e `service` e verifica se algum teste falha | `hospedabem_test` |
 
 ```bash
-mvn test                      # unitários + integração + E2E (247 testes previstos)
+mvn test                      # unitários + integração + E2E (247 testes)
 mvn test -Dtest='*Test'       # somente unitários, sem banco
 mvn test -Dtest='TelasE2E' -Dhb.e2e.capturas=docs/telas   # E2E salvando a captura de cada passo
 mvn test-compile org.pitest:pitest-maven:mutationCoverage  # mutação; relatório em target/pit-reports/index.html
@@ -334,6 +334,7 @@ Os E2E abrem janelas JavaFX e precisam de uma sessão gráfica: em Linux sem mon
 | Iteração 2 (UC06), 09/11/2026 | OpenJDK 25 com `--release 17`, PostgreSQL 17.11 | **207**, 0 falhas, 0 erros (79 unitários, 118 de integração, 10 E2E) | **539 mutantes, 516 mortos (96%)** |
 | Iteração 2 (UC09), 13/11/2026 | OpenJDK 25 com `--release 17`, PostgreSQL 17.11 | **236**, 0 falhas, 0 erros (87 unitários, 138 de integração, 11 E2E) | **537 mutantes, 513 mortos (96%)** |
 | Iteração 2, validação final (#9), 13/11/2026 | OpenJDK 27 com `--release 17`, PostgreSQL 17.11 | **246**, 0 falhas, 0 erros (89 unitários, 145 de integração, 12 E2E); antes dela, 240 | **541 mutantes, 517 mortos (96%)** |
+| Iteração 2, entrega (#10), 13/11/2026 | OpenJDK 17.0.21, PostgreSQL 17 | **247**, 0 falhas, 0 erros (89 unitários, 146 de integração, 12 E2E) | **541 mutantes, 517 mortos (96%)** |
 
 A validação do ciclo completo e da regressão da iteração 2 — comandos, ambiente, resultado de cada critério e o que não foi validado — está em [`docs/validacao-iteracao-2.md`](docs/validacao-iteracao-2.md).
 
