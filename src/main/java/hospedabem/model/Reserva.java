@@ -32,7 +32,7 @@ public class Reserva {
                     + " e não permite check-in.");
         if (hoje.isBefore(periodo.entrada()))
             throw new NegocioException("A entrada prevista da reserva é " + periodo.entrada()
-                    + ". Check-in antecipado exige alterar a reserva (UC09, iteração 2).");
+                    + ". Check-in antecipado exige alterar a reserva em \"Alterar/cancelar reserva\" (UC09).");
         if (!hoje.isBefore(periodo.saida()))
             throw new NegocioException("O período da reserva já terminou; ela não permite check-in.");
     }
@@ -40,6 +40,40 @@ public class Reserva {
     public void converter(Hospedagem h) {
         situacao = SituacaoReserva.CONVERTIDA;
         h.setReserva(this);
+    }
+
+    /**
+     * UC09: só a reserva CONFIRMADA pode ser alterada ou cancelada. A CONVERTIDA já virou
+     * hospedagem, e a CANCELADA é preservada como registro: nenhuma das duas volta atrás, e a
+     * mensagem diz em que situação a reserva está para a recepção saber o que fazer.
+     */
+    public void exigirAlteravel() {
+        if (situacao != SituacaoReserva.CONFIRMADA)
+            throw new NegocioException("Reserva " + codigo + " está " + situacao.name().toLowerCase()
+                    + " e não pode mais ser alterada nem cancelada.");
+    }
+
+    /** Cancela preservando a linha; a capacidade volta à consulta de disponibilidade (UC07). */
+    public void cancelar() {
+        exigirAlteravel();
+        situacao = SituacaoReserva.CANCELADA;
+    }
+
+    /**
+     * Devolve como a reserva fica com os dados informados, sem tocar na linha gravada: quem grava é
+     * o service. A entrada só é conferida contra hoje quando muda, para que a reserva cuja entrada
+     * já chegou continue alterável nos outros campos sem poder ser remarcada para trás.
+     */
+    public Reserva alteradaPara(SolicitacaoReserva nova, LocalDate hoje) {
+        exigirAlteravel();
+        nova.validarDados();
+        if (!nova.periodo().entrada().equals(periodo.entrada())) nova.exigirEntradaNaoPassada(hoje);
+        Reserva alterada = new Reserva(id, codigo, nova.responsavel(), nova.tipo(), nova.periodo(),
+                nova.quantidadeHospedes(), situacao, funcionarioId, versao);
+        if (mesmoEstadoDe(alterada))
+            throw new NegocioException("Reserva " + codigo + ": os dados informados são os já gravados. "
+                    + "Altere algum campo ou cancele a reserva.");
+        return alterada;
     }
 
     public boolean mesmoEstadoDe(Reserva outra) {

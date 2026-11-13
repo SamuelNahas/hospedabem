@@ -101,6 +101,86 @@ class DominioTest {
                 SituacaoReserva.CONFIRMADA, 1, 0)));
     }
 
+    /** UC09: só a reserva CONFIRMADA é alterada ou cancelada; a situação aparece na mensagem. */
+    @Test
+    void reservaConvertidaOuCanceladaNaoEhMaisAlteradaNemCancelada() {
+        reserva(0, SituacaoReserva.CONFIRMADA).exigirAlteravel();
+        assertEquals("Reserva 1001 está convertida e não pode mais ser alterada nem cancelada.",
+                assertThrows(NegocioException.class, () -> reserva(0, SituacaoReserva.CONVERTIDA).exigirAlteravel())
+                        .getMessage());
+        assertEquals("Reserva 1001 está cancelada e não pode mais ser alterada nem cancelada.",
+                assertThrows(NegocioException.class, () -> reserva(0, SituacaoReserva.CANCELADA).exigirAlteravel())
+                        .getMessage());
+        assertThrows(NegocioException.class, () -> reserva(0, SituacaoReserva.CONVERTIDA).cancelar());
+        assertThrows(NegocioException.class, () -> reserva(0, SituacaoReserva.CANCELADA).cancelar());
+        assertThrows(NegocioException.class, () -> reserva(0, SituacaoReserva.CONVERTIDA)
+                .alteradaPara(solicitacao(ANA, LUXO, new Periodo(D, D.plusDays(5)), 2), D));
+    }
+
+    @Test
+    void cancelarPreservaOsDadosEMarcaCancelada() {
+        Reserva r = reserva(0, SituacaoReserva.CONFIRMADA);
+        r.cancelar();
+        assertEquals(SituacaoReserva.CANCELADA, r.getSituacao());
+        assertEquals(1001, r.getCodigo());
+        assertEquals(2, r.getQuantidadeHospedes());
+        assertEquals(new Periodo(D, D.plusDays(2)), r.getPeriodo());
+    }
+
+    /** A alteração devolve como a reserva fica, sem tocar na reserva gravada: quem grava é o service. */
+    @Test
+    void alteracaoDevolveNovaReservaSemMudarAGravada() {
+        Reserva gravada = reserva(3, SituacaoReserva.CONFIRMADA);
+        Hospede bia = new Hospede(8, "222", "Bia", D.minusYears(20), null, null, null, "67", null);
+        Reserva alterada = gravada.alteradaPara(solicitacao(bia, LUXO, new Periodo(D.plusDays(1), D.plusDays(4)), 3), D);
+        assertEquals(8, alterada.getResponsavel().id());
+        assertEquals(3, alterada.getQuantidadeHospedes());
+        assertEquals(new Periodo(D.plusDays(1), D.plusDays(4)), alterada.getPeriodo());
+        assertEquals(1001, alterada.getCodigo());
+        assertEquals(5, alterada.getId());
+        assertEquals(SituacaoReserva.CONFIRMADA, alterada.getSituacao());
+        assertEquals(1, alterada.getFuncionarioId());
+        assertEquals(new Periodo(D, D.plusDays(2)), gravada.getPeriodo()); // a gravada não mudou
+        assertEquals(2, gravada.getQuantidadeHospedes());
+    }
+
+    @Test
+    void alteracaoSemNenhumaMudancaEhRecusada() {
+        Reserva gravada = reserva(0, SituacaoReserva.CONFIRMADA);
+        assertEquals("Reserva 1001: os dados informados são os já gravados. "
+                        + "Altere algum campo ou cancele a reserva.",
+                assertThrows(NegocioException.class, () -> gravada.alteradaPara(
+                        solicitacao(ANA, LUXO, new Periodo(D, D.plusDays(2)), 2), D)).getMessage());
+    }
+
+    @Test
+    void alteracaoValidaCapacidadeEQuantidade() {
+        Reserva gravada = reserva(0, SituacaoReserva.CONFIRMADA);
+        gravada.alteradaPara(solicitacao(ANA, LUXO, gravada.getPeriodo(), 3), D); // limite exato do LUX
+        assertThrows(NegocioException.class, () -> gravada.alteradaPara(
+                solicitacao(ANA, LUXO, gravada.getPeriodo(), 4), D));
+        assertThrows(NegocioException.class, () -> gravada.alteradaPara(
+                solicitacao(ANA, LUXO, gravada.getPeriodo(), 0), D));
+    }
+
+    /**
+     * A entrada só é conferida contra hoje quando muda: a reserva cuja entrada já chegou continua
+     * alterável nos outros campos, mas não pode ser remarcada para trás.
+     */
+    @Test
+    void entradaMantidaNoPassadoEhAceitaEEntradaRemarcadaParaTrasEhRecusada() {
+        Reserva gravada = new Reserva(5, 1001, ANA, LUXO, new Periodo(D.minusDays(2), D.plusDays(2)), 2,
+                SituacaoReserva.CONFIRMADA, 1, 0);
+        gravada.alteradaPara(solicitacao(ANA, LUXO, new Periodo(D.minusDays(2), D.plusDays(5)), 2), D);
+        assertThrows(NegocioException.class, () -> gravada.alteradaPara(
+                solicitacao(ANA, LUXO, new Periodo(D.minusDays(3), D.plusDays(2)), 2), D));
+        gravada.alteradaPara(solicitacao(ANA, LUXO, new Periodo(D, D.plusDays(2)), 2), D); // remarcada para hoje
+    }
+
+    static SolicitacaoReserva solicitacao(Hospede responsavel, TipoQuarto tipo, Periodo periodo, int quantidade) {
+        return new SolicitacaoReserva(responsavel, tipo, periodo, quantidade);
+    }
+
     @Test
     void capacidadeAceitaOLimiteERecusaAlem() {
         LUXO.exigirComporta(3);
